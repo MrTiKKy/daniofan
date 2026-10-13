@@ -126,10 +126,19 @@ export default function AdminPanel() {
       flash('Lipsește NEXT_PUBLIC_ADMIN_SECRET (același ca ADMIN_SECRET pe server).', true);
       return;
     }
-    flash('Se publică imaginea pentru share…');
+    flash('Se publică poza de Facebook pentru share…');
     try {
-      const canvas = await Social.render(d, Social.OG_FORMAT);
-      const blob = await Social.toBlob(canvas);
+      // Exact PNG-ul din «Postare Facebook — pătrat» (preview-ul din secțiunea 3)
+      let blob: Blob | null = null;
+      const squareUrl = socialUrlsRef.current.square;
+      if (squareUrl) {
+        const res = await fetch(squareUrl);
+        blob = await res.blob();
+      }
+      if (!blob || !blob.size) {
+        const canvas = await Social.render(d, 'square');
+        blob = await Social.toBlob(canvas);
+      }
       if (!blob) throw new Error('Nu s-a putut genera PNG-ul');
       const offer = DF.resolveOffer(d);
       const period = DF.fmtRange(offer.start, offer.end);
@@ -146,7 +155,7 @@ export default function AdminPanel() {
       });
       const body = (await res.json().catch(() => ({}))) as { error?: string; version?: number };
       if (!res.ok) throw new Error(body.error || res.statusText);
-      flash('✓ Imagine publicată pentru Facebook / WhatsApp. Reîmprospătați previzualizarea în Sharing Debugger.');
+      flash('✓ Aceeași poză ca postarea pătrată e acum preview-ul la share (Facebook / WhatsApp). Sharing Debugger → Scrape Again.');
     } catch (err) {
       flash(err instanceof Error ? err.message : 'Publicarea a eșuat.', true);
     }
@@ -307,10 +316,10 @@ export default function AdminPanel() {
           </div>
           <div className="btns" style={{ marginTop: '1rem' }}>
             <button className="btn a-add" id="publish-og" type="button" onClick={publishOgShare}>
-              Publică imaginea pentru share
+              Publică poza de Facebook pentru share
             </button>
           </div>
-          <p className="help">Generează aceeași imagine ca postarea pătrată (1080×1080, cu produsele din ofertă), o urcă pe Vercel Blob și o folosește Facebook / WhatsApp la previzualizarea linkului. După publicare: Facebook Sharing Debugger → Scrape Again.</p>
+          <p className="help">Urcă pe server <b>exact</b> poza din «Postare Facebook — pătrat» (cea pe care o vezi mai sus, cu prețuri și produse). Asta apare când cineva partajează linkul pe Facebook / WhatsApp. După publicare: Facebook Sharing Debugger → Scrape Again.</p>
         </section>
 
         <section className="a-card">

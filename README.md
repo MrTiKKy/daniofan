@@ -116,7 +116,7 @@ Copiați `.env.example` → `.env.local` (local) și setați aceleași valori î
 1. Pe [vercel.com](https://vercel.com) → proiectul → **Storage** → **Create** → **Blob**.
 2. Conectați store-ul la proiect; Vercel poate scrie automat `BLOB_READ_WRITE_TOKEN` în env.
 3. Redeploy după ce apar variabilele.
-4. În `/admin` → secțiunea 3 → **Publică imaginea pentru share** (generează 1080×1080 cu produsele din ofertă, urcă `og/current.png` + `og/meta.json`).
+4. În `/admin` → secțiunea 3 → **Publică poza de Facebook pentru share** (urcă exact PNG-ul «Postare Facebook — pătrat» 1080×1080 — cu prețuri și produse — ca `og/current.png` + `og/meta.json`).
 
 Dacă nu e publicată nicio imagine, se folosește `/og-default.png`.
 
@@ -162,7 +162,7 @@ components/
   icons.tsx                           iconițele SVG
 lib/
   store.ts                            date, calcule (reduceri, statusuri, date automate, countdown), localStorage, statistici
-  social.ts                           generatorul de imagini Facebook pe <canvas> (+ format og 1200×630)
+  social.ts                           generatorul de imagini Facebook pe <canvas> (square = og:image)
   og-meta.ts                          citește og/meta.json din Vercel Blob
   image.ts                            micșorarea pozelor + decupare fundal (browser u2netp)
   remove-bg-browser.ts                U-2-Net u2netp + onnxruntime-web (client)
