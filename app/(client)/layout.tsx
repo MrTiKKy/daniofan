@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import '@/styles/fonts.css';
 import '@/styles/flyer.css';
+import '@/styles/themes.css';
 
 /** Title / OG vin din generateMetadata pe page.tsx (imaginea de share din Blob). */
 export const metadata: Metadata = {

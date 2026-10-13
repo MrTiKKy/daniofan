@@ -22,6 +22,8 @@ export interface OfferInfo {
   end: string;
   /** true = oferta rulează mereu în weekendul curent (vineri–duminică), pentru demo */
   autoDates: boolean;
+  /** tema vizuală: standard | paste | craciun (lipsă = standard) */
+  theme?: 'standard' | 'paste' | 'craciun';
 }
 
 export interface Product {

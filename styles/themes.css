@@ -1,0 +1,113 @@
+/* Teme de sezon: Paște și Crăciun. Aceeași structură de pliant, alte culori + bandă + decoruri SVG. */
+
+/* ---------- banda de sărbătoare (comună) ---------- */
+.holiday-band{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 8px 18px;overflow:hidden;
+  background:linear-gradient(180deg,var(--band) 0%,var(--band-dark) 100%);color:#fff;text-align:center}
+.holiday-band::before{content:"";position:absolute;left:50%;top:50%;width:1200px;height:1200px;transform:translate(-50%,-50%);
+  background:repeating-conic-gradient(rgba(255,255,255,.16) 0 5deg,transparent 5deg 13deg);pointer-events:none}
+.holiday-band::after{content:"";position:absolute;left:0;right:0;bottom:0;height:12px;
+  background:linear-gradient(135deg,var(--yellow-deep) 25%,transparent 25%) -6px 0/12px 12px,linear-gradient(225deg,var(--yellow-deep) 25%,transparent 25%) -6px 0/12px 12px;background-color:var(--band-dark)}
+.hb-txt{position:relative;display:flex;flex-direction:column;align-items:center;font-family:var(--cond);font-style:italic;font-weight:900;line-height:.92;transform:rotate(-2deg)}
+.hb-txt b{font-size:46px;line-height:1.02;padding-bottom:4px;color:var(--yellow);-webkit-text-stroke:.09em var(--band-dark);paint-order:stroke fill;text-shadow:2px 4px 0 rgba(0,0,0,.35);letter-spacing:.5px}
+.hb-txt small{font-size:26px;color:#fff;-webkit-text-stroke:.08em var(--band-dark);paint-order:stroke fill;letter-spacing:1px;margin-top:2px}
+.hb-side{position:relative;display:flex;align-items:center;flex:none}
+.hb-i{display:block;filter:drop-shadow(0 3px 2px rgba(0,0,0,.3))}
+.hb-i.a{width:44px;height:58px;transform:rotate(-14deg)}
+.hb-i.b{width:34px;height:46px;margin:0 -4px;transform:rotate(12deg)}
+.hb-craciun .hb-i.a{width:52px;height:52px}
+.hb-craciun .hb-i.b{width:30px;height:30px;margin:0 2px}
+.hb-craciun .hb-i{animation:spin 14s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.holiday-deco{position:absolute;inset:0;pointer-events:none;z-index:0}
+.holiday-deco svg{position:absolute;filter:drop-shadow(0 4px 3px rgba(0,0,0,.18))}
+.hd-paste .d1{left:-14px;top:70px;width:76px;height:100px;transform:rotate(-22deg)}
+.hd-paste .d2{right:-10px;top:40px;width:64px;height:86px;transform:rotate(18deg)}
+.hd-paste .d3{left:4px;bottom:150px;width:50px;height:68px;transform:rotate(12deg)}
+.hd-paste .d4{right:4px;bottom:190px;width:54px;height:72px;transform:rotate(-16deg)}
+.hd-craciun svg{filter:none;opacity:.85}
+.hd-craciun .d1{left:8px;top:40px;width:62px;height:62px}
+.hd-craciun .d2{right:12px;top:90px;width:48px;height:48px}
+.hd-craciun .d3{left:30px;top:240px;width:34px;height:34px}
+.hd-craciun .d4{right:24px;bottom:170px;width:56px;height:56px}
+.hd-craciun .d5{left:12px;bottom:120px;width:40px;height:40px}
+
+/* ---------- PAȘTE: verde crud de primăvară + galben, insigne roșii ---------- */
+body[data-theme="paste"]{--band:#22B33A;--band-dark:#0E7A24;--blue:#0E8A2E;--blue-dark:#055A1B;
+  background:linear-gradient(180deg,#F3FFD6 0,#fff 520px)}
+body[data-theme="paste"] .burst-bg::before{background:repeating-conic-gradient(#DDF59A 0 6deg,#FFFBD0 6deg 15deg)}
+body[data-theme="paste"] .p-img::before{background:repeating-conic-gradient(#D7F27C 0 8deg,#FFFDE0 8deg 20deg)}
+body[data-theme="paste"] .logo .l1{text-shadow:.045em .05em 0 var(--blue-dark)}
+body[data-theme="paste"] .logo{filter:drop-shadow(0 4px 0 rgba(5,90,27,.2))}
+body[data-theme="paste"] .section-h::after{background:repeating-linear-gradient(90deg,#22B33A 0 18px,var(--yellow-deep) 18px 36px,var(--red) 36px 54px)}
+body[data-theme="paste"] .countdown{background:#0E5A1E;box-shadow:0 6px 0 var(--yellow-deep)}
+body[data-theme="paste"] .card{border-color:#0E5A1E;box-shadow:0 8px 0 #0E5A1E}
+body[data-theme="paste"] .card.hero{border-color:var(--red);box-shadow:0 8px 0 var(--red-dark)}
+body[data-theme="paste"] .hero-tag{background:linear-gradient(90deg,var(--red),#FF4A1C,var(--red))}
+body[data-theme="paste"] .foot{border-top-color:#22B33A}
+body[data-theme="paste"] .bar{border-top-color:#0E5A1E}
+
+/* ---------- CRĂCIUN: roșu închis, verde brad, auriu, fulgi ---------- */
+body[data-theme="craciun"]{--red:#D0021B;--red-dark:#7E0010;--yellow:#FFD84A;--yellow-deep:#E8B21E;--blue:#0B6B36;--blue-dark:#063D1F;
+  --band:#0B5B2E;--band-dark:#05341A;
+  background:linear-gradient(180deg,#FFF6E4 0,#fff 520px)}
+body[data-theme="craciun"] .holiday-band::after{background:repeating-linear-gradient(135deg,var(--red) 0 10px,#fff 10px 20px)}
+body[data-theme="craciun"] .holiday-band{border-top:4px solid var(--yellow-deep)}
+body[data-theme="craciun"] .burst-bg::before{background:repeating-conic-gradient(#F7E3B0 0 6deg,#FFFBF0 6deg 15deg)}
+body[data-theme="craciun"] .p-img::before{background:repeating-conic-gradient(#F5DC9A 0 8deg,#FFFDF5 8deg 20deg)}
+body[data-theme="craciun"] .logo .l1{text-shadow:.045em .05em 0 var(--blue-dark)}
+body[data-theme="craciun"] .logo .l2{text-shadow:.045em .05em 0 #4a0008}
+body[data-theme="craciun"] .section-h::after{background:repeating-linear-gradient(90deg,var(--red) 0 18px,#fff 18px 24px,#0B6B36 24px 42px,#fff 42px 48px)}
+body[data-theme="craciun"] .countdown{background:#0B3D22;box-shadow:0 6px 0 var(--yellow-deep)}
+body[data-theme="craciun"] .card{border-color:#0B3D22;box-shadow:0 8px 0 #0B3D22}
+body[data-theme="craciun"] .card.hero{border-color:var(--red);box-shadow:0 8px 0 var(--red-dark),0 0 0 3px var(--yellow-deep) inset}
+body[data-theme="craciun"] .hero-tag{background:linear-gradient(90deg,var(--red-dark),var(--red),var(--red-dark));border-bottom:4px solid var(--yellow-deep)}
+body[data-theme="craciun"] .ribbon{box-shadow:0 0 0 3px var(--yellow-deep)}
+body[data-theme="craciun"] .save b{background:#FCEFC4}
+body[data-theme="craciun"] .foot{border-top-color:#0B6B36}
+body[data-theme="craciun"] .bar{border-top-color:#0B3D22}
+
+@media (min-width:900px){
+  .hb-txt b{font-size:64px}.hb-txt small{font-size:34px}
+  .hb-txt{flex-direction:row;align-items:baseline;gap:14px}
+  .hb-i.a{width:60px;height:80px}.hb-i.b{width:46px;height:62px}
+}
+@media (max-width:370px){.hb-txt b{font-size:38px}.hb-txt small{font-size:22px}.hb-i.b{display:none}}
+
+/* ---------- căsuțele produselor pe tema de sezon ---------- */
+body[data-theme="craciun"] .card{background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20160%20160%22%3E%3Cg%20stroke-width%3D%222.6%22%20stroke-linecap%3D%22round%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%2830%2030%29%20scale%281%29%20rotate%280%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.45%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%2830%2030%29%20scale%281%29%20rotate%2860%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.45%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%2830%2030%29%20scale%281%29%20rotate%28120%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.45%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%2830%2030%29%20scale%281%29%20rotate%28180%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.45%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%2830%2030%29%20scale%281%29%20rotate%28240%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.45%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%2830%2030%29%20scale%281%29%20rotate%28300%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.45%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%28110%2080%29%20scale%280.7%29%20rotate%280%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.35%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%28110%2080%29%20scale%280.7%29%20rotate%2860%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.35%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%28110%2080%29%20scale%280.7%29%20rotate%28120%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.35%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%28110%2080%29%20scale%280.7%29%20rotate%28180%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.35%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%28110%2080%29%20scale%280.7%29%20rotate%28240%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.35%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%28110%2080%29%20scale%280.7%29%20rotate%28300%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.35%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%2860%20130%29%20scale%280.85%29%20rotate%280%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.4%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%2860%20130%29%20scale%280.85%29%20rotate%2860%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.4%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%2860%20130%29%20scale%280.85%29%20rotate%28120%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.4%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%2860%20130%29%20scale%280.85%29%20rotate%28180%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.4%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%2860%20130%29%20scale%280.85%29%20rotate%28240%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.4%22/%3E%3Cpath%20d%3D%22M0%200V-16M0-9L5-13M0-9L-5-13%22%20transform%3D%22translate%2860%20130%29%20scale%280.85%29%20rotate%28300%29%22%20stroke%3D%22%23fff%22%20opacity%3D%220.4%22/%3E%3C/g%3E%3Cg%20fill%3D%22%23fff%22%20opacity%3D%22.5%22%3E%3Ccircle%20cx%3D%2290%22%20cy%3D%2220%22%20r%3D%222.5%22/%3E%3Ccircle%20cx%3D%22140%22%20cy%3D%22140%22%20r%3D%222%22/%3E%3Ccircle%20cx%3D%2215%22%20cy%3D%2295%22%20r%3D%222%22/%3E%3Ccircle%20cx%3D%22130%22%20cy%3D%2240%22%20r%3D%221.5%22/%3E%3C/g%3E%3C/svg%3E") 0 0/160px 160px,linear-gradient(135deg,#E0142B,#9A0014);border:3px solid var(--yellow-deep);
+  box-shadow:0 8px 0 #4A0008;padding:22px 20px 20px}
+body[data-theme="craciun"] .card.hero{padding-top:12px;box-shadow:0 8px 0 #4A0008,0 0 0 3px var(--yellow-deep)}
+body[data-theme="craciun"] .hero-tag{margin:0 -20px 16px;margin-top:-12px}
+body[data-theme="craciun"] .card-main{position:relative;background:rgba(255,252,244,.97);border-radius:18px;padding:14px 12px 16px;box-shadow:0 4px 10px rgba(0,0,0,.25)}
+body[data-theme="craciun"] .card::before{content:"";position:absolute;z-index:3;right:6px;top:-2px;width:92px;height:82px;background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20100%2090%22%3E%3Cdefs%3E%3CradialGradient%20id%3D%22g%22%20cx%3D%22.35%22%20cy%3D%22.35%22%20r%3D%22.7%22%3E%3Cstop%20offset%3D%220%22%20stop-color%3D%22%23FFF3B0%22/%3E%3Cstop%20offset%3D%22.5%22%20stop-color%3D%22%23F2C230%22/%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23A87400%22/%3E%3C/radialGradient%3E%3C/defs%3E%0A%3Cpath%20d%3D%22M50%2014L28%2046M50%2014L72%2050%22%20stroke%3D%22%230B6B36%22%20stroke-width%3D%225%22/%3E%0A%3Cg%3E%3Ccircle%20cx%3D%2228%22%20cy%3D%2258%22%20r%3D%2217%22%20fill%3D%22url%28%23g%29%22/%3E%3Cpath%20d%3D%22M12%2057H44%22%20stroke%3D%22%237A5200%22%20stroke-width%3D%222.5%22/%3E%3Ccircle%20cx%3D%2228%22%20cy%3D%2265%22%20r%3D%223.5%22%20fill%3D%22%235A3C00%22/%3E%3Crect%20x%3D%2227%22%20y%3D%2265%22%20width%3D%222%22%20height%3D%229%22%20fill%3D%22%235A3C00%22/%3E%3C/g%3E%0A%3Cg%3E%3Ccircle%20cx%3D%2272%22%20cy%3D%2262%22%20r%3D%2217%22%20fill%3D%22url%28%23g%29%22/%3E%3Cpath%20d%3D%22M56%2061H88%22%20stroke%3D%22%237A5200%22%20stroke-width%3D%222.5%22/%3E%3Ccircle%20cx%3D%2272%22%20cy%3D%2269%22%20r%3D%223.5%22%20fill%3D%22%235A3C00%22/%3E%3Crect%20x%3D%2271%22%20y%3D%2269%22%20width%3D%222%22%20height%3D%229%22%20fill%3D%22%235A3C00%22/%3E%3C/g%3E%0A%3Cpath%20d%3D%22M50%2014L32%204V24ZM50%2014L68%204V24Z%22%20fill%3D%22%23D0021B%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222%22/%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2214%22%20r%3D%225%22%20fill%3D%22%23D0021B%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222%22/%3E%3C/svg%3E") center/contain no-repeat;pointer-events:none;filter:drop-shadow(0 3px 2px rgba(0,0,0,.3))}
+body[data-theme="craciun"] .card.hero::before{top:46px}
+body[data-theme="craciun"] .p-img::after{content:"";position:absolute;left:4%;right:4%;bottom:-6px;height:34px;border-radius:50% 50% 8px 8px/100% 100% 8px 8px;background:#fff;box-shadow:0 -2px 10px rgba(0,40,80,.18)}
+body[data-theme="craciun"] .p-img img{z-index:1}
+body[data-theme="craciun"] .extra{background:rgba(255,252,244,.97);border-radius:16px;padding:4px 10px 14px;margin-top:14px}
+body[data-theme="craciun"] .ribbon{margin-left:-2px;margin-right:-2px}
+
+/* zăpadă care cade ușor (doar Crăciun, doar dacă utilizatorul acceptă animații) */
+.snowfall{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}
+.snowfall i{position:absolute;inset:-100% 0 0 0;height:200%;background-repeat:repeat;animation:snow linear infinite}
+.snowfall i:nth-child(1){background-image:radial-gradient(circle at 20px 30px,#fff 3px,transparent 4px),radial-gradient(circle at 140px 90px,#fff 2.5px,transparent 3.5px),radial-gradient(circle at 80px 170px,#fff 3px,transparent 4px);background-size:200px 220px;animation-duration:18s;opacity:.9}
+.snowfall i:nth-child(2){background-image:radial-gradient(circle at 60px 50px,#fff 2px,transparent 3px),radial-gradient(circle at 170px 140px,#fff 2px,transparent 3px);background-size:240px 200px;animation-duration:26s;opacity:.7}
+.snowfall i:nth-child(3){background-image:radial-gradient(circle at 100px 20px,#fff 4px,transparent 5px);background-size:300px 320px;animation-duration:14s;opacity:.75;filter:blur(.5px)}
+.snowfall i{filter:drop-shadow(0 0 1px rgba(0,60,120,.5))}
+@keyframes snow{from{transform:translate3d(0,0,0)}to{transform:translate3d(30px,50%,0)}}
+@media (prefers-reduced-motion:reduce){.snowfall{display:none}}
+
+/* PAȘTE: culori de primăvară, iarbă sub produs, ouă încondeiate */
+body[data-theme="paste"] .card{background:linear-gradient(180deg,#FFFDE8 0%,#F2FBC9 55%,#D9F3A0 100%)}
+body[data-theme="paste"] .p-img::after{content:"";position:absolute;left:-6%;right:-6%;bottom:-4px;height:46px;background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20400%2050%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M-3.0%2050Q0.4%2029.5%20-0.9%2015.9Q0.2%2032.9%205.0%2050Z%22%20fill%3D%22%231E8C2A%22/%3E%3Cpath%20d%3D%22M7.2%2050Q9.4%2028.2%205.1%2013.7Q8.8%2031.9%2015.2%2050Z%22%20fill%3D%22%232BA334%22/%3E%3Cpath%20d%3D%22M13.7%2050Q16.6%2024.9%2014.3%208.2Q16.3%2029.1%2021.7%2050Z%22%20fill%3D%22%233DBE3A%22/%3E%3Cpath%20d%3D%22M23.3%2050Q27.2%2022.5%2026.9%204.1Q27.2%2027.1%2031.3%2050Z%22%20fill%3D%22%2358D24A%22/%3E%3Cpath%20d%3D%22M34.5%2050Q39.1%2030.6%2040.5%2017.6Q39.3%2033.8%2042.5%2050Z%22%20fill%3D%22%231E8C2A%22/%3E%3Cpath%20d%3D%22M40.6%2050Q46.1%2028.1%2049.8%2013.5Q46.7%2031.7%2048.6%2050Z%22%20fill%3D%22%232BA334%22/%3E%3Cpath%20d%3D%22M50.9%2050Q55.6%2026.4%2057.3%2010.7Q55.9%2030.4%2058.9%2050Z%22%20fill%3D%22%233DBE3A%22/%3E%3Cpath%20d%3D%22M57.9%2050Q62.2%2026.2%2063.1%2010.3Q62.4%2030.1%2065.9%2050Z%22%20fill%3D%22%2358D24A%22/%3E%3Cpath%20d%3D%22M67.6%2050Q73.1%2037.5%2076.7%2029.2Q73.7%2039.6%2075.6%2050Z%22%20fill%3D%22%231E8C2A%22/%3E%3Cpath%20d%3D%22M77.1%2050Q82.7%2026.8%2086.4%2011.3Q83.2%2030.7%2085.1%2050Z%22%20fill%3D%22%232BA334%22/%3E%3Cpath%20d%3D%22M86.9%2050Q90.4%2023.6%2089.4%206.1Q90.3%2028.0%2094.9%2050Z%22%20fill%3D%22%233DBE3A%22/%3E%3Cpath%20d%3D%22M96.0%2050Q101.8%2031.1%20106.1%2018.4Q102.4%2034.2%20104.0%2050Z%22%20fill%3D%22%2358D24A%22/%3E%3Cpath%20d%3D%22M105.1%2050Q107.6%2036.5%20104.0%2027.5Q107.1%2038.7%20113.1%2050Z%22%20fill%3D%22%231E8C2A%22/%3E%3Cpath%20d%3D%22M111.3%2050Q115.0%2022.9%20114.4%204.9Q114.9%2027.4%20119.3%2050Z%22%20fill%3D%22%232BA334%22/%3E%3Cpath%20d%3D%22M121.7%2050Q125.7%2033.3%20125.8%2022.2Q125.7%2036.1%20129.7%2050Z%22%20fill%3D%22%233DBE3A%22/%3E%3Cpath%20d%3D%22M129.5%2050Q133.9%2032.5%20134.7%2020.9Q134.0%2035.4%20137.5%2050Z%22%20fill%3D%22%2358D24A%22/%3E%3Cpath%20d%3D%22M139.1%2050Q143.9%2023.9%20145.7%206.5Q144.2%2028.2%20147.1%2050Z%22%20fill%3D%22%231E8C2A%22/%3E%3Cpath%20d%3D%22M149.3%2050Q155.4%2024.6%20160.2%207.7Q156.1%2028.9%20157.3%2050Z%22%20fill%3D%22%232BA334%22/%3E%3Cpath%20d%3D%22M157.1%2050Q162.6%2035.5%20166.1%2025.8Q163.1%2037.9%20165.1%2050Z%22%20fill%3D%22%233DBE3A%22/%3E%3Cpath%20d%3D%22M167.1%2050Q171.3%2023.9%20172.0%206.5Q171.4%2028.2%20175.1%2050Z%22%20fill%3D%22%2358D24A%22/%3E%3Cpath%20d%3D%22M174.9%2050Q180.2%2034.7%20183.5%2024.5Q180.7%2037.3%20182.9%2050Z%22%20fill%3D%22%231E8C2A%22/%3E%3Cpath%20d%3D%22M183.1%2050Q185.3%2033.6%20181.0%2022.6Q184.6%2036.3%20191.1%2050Z%22%20fill%3D%22%232BA334%22/%3E%3Cpath%20d%3D%22M193.0%2050Q195.3%2022.6%20191.3%204.3Q194.7%2027.1%20201.0%2050Z%22%20fill%3D%22%233DBE3A%22/%3E%3Cpath%20d%3D%22M201.6%2050Q204.1%2031.6%20200.7%2019.3Q203.6%2034.7%20209.6%2050Z%22%20fill%3D%22%2358D24A%22/%3E%3Cpath%20d%3D%22M208.4%2050Q213.9%2026.0%20217.6%2010.0Q214.5%2030.0%20216.4%2050Z%22%20fill%3D%22%231E8C2A%22/%3E%3Cpath%20d%3D%22M216.2%2050Q218.3%2028.4%20213.8%2014.0Q217.6%2032.0%20224.2%2050Z%22%20fill%3D%22%232BA334%22/%3E%3Cpath%20d%3D%22M227.7%2050Q233.3%2032.8%20237.0%2021.4Q233.8%2035.7%20235.7%2050Z%22%20fill%3D%22%233DBE3A%22/%3E%3Cpath%20d%3D%22M237.5%2050Q243.6%2030.1%20248.5%2016.9Q244.3%2033.4%20245.5%2050Z%22%20fill%3D%22%2358D24A%22/%3E%3Cpath%20d%3D%22M243.6%2050Q248.1%2036.8%20249.0%2028.0Q248.2%2039.0%20251.6%2050Z%22%20fill%3D%22%231E8C2A%22/%3E%3Cpath%20d%3D%22M251.3%2050Q254.9%2034.9%20254.0%2024.9Q254.8%2037.4%20259.3%2050Z%22%20fill%3D%22%232BA334%22/%3E%3Cpath%20d%3D%22M262.4%2050Q264.5%2035.6%20260.0%2025.9Q263.9%2038.0%20270.4%2050Z%22%20fill%3D%22%233DBE3A%22/%3E%3Cpath%20d%3D%22M272.3%2050Q278.2%2033.1%20282.7%2021.8Q278.8%2035.9%20280.3%2050Z%22%20fill%3D%22%2358D24A%22/%3E%3Cpath%20d%3D%22M281.2%2050Q285.0%2032.1%20284.6%2020.2Q285.0%2035.1%20289.2%2050Z%22%20fill%3D%22%231E8C2A%22/%3E%3Cpath%20d%3D%22M288.5%2050Q292.9%2028.0%20293.8%2013.3Q293.0%2031.6%20296.5%2050Z%22%20fill%3D%22%232BA334%22/%3E%3Cpath%20d%3D%22M297.4%2050Q303.3%2028.3%20307.6%2013.9Q303.9%2031.9%20305.4%2050Z%22%20fill%3D%22%233DBE3A%22/%3E%3Cpath%20d%3D%22M306.0%2050Q311.0%2031.3%20313.1%2018.8Q311.3%2034.4%20314.0%2050Z%22%20fill%3D%22%2358D24A%22/%3E%3Cpath%20d%3D%22M313.8%2050Q319.8%2033.3%20324.4%2022.2Q320.4%2036.1%20321.8%2050Z%22%20fill%3D%22%231E8C2A%22/%3E%3Cpath%20d%3D%22M323.7%2050Q325.6%2029.4%20320.8%2015.7Q324.9%2032.9%20331.7%2050Z%22%20fill%3D%22%232BA334%22/%3E%3Cpath%20d%3D%22M332.1%2050Q334.0%2029.0%20329.3%2014.9Q333.4%2032.5%20340.1%2050Z%22%20fill%3D%22%233DBE3A%22/%3E%3Cpath%20d%3D%22M341.7%2050Q343.8%2028.1%20339.5%2013.6Q343.2%2031.8%20349.7%2050Z%22%20fill%3D%22%2358D24A%22/%3E%3Cpath%20d%3D%22M350.5%2050Q355.3%2030.7%20357.0%2017.9Q355.5%2033.9%20358.5%2050Z%22%20fill%3D%22%231E8C2A%22/%3E%3Cpath%20d%3D%22M358.2%2050Q363.2%2027.0%20365.5%2011.6Q363.5%2030.8%20366.2%2050Z%22%20fill%3D%22%232BA334%22/%3E%3Cpath%20d%3D%22M365.7%2050Q370.4%2037.1%20372.2%2028.4Q370.7%2039.2%20373.7%2050Z%22%20fill%3D%22%233DBE3A%22/%3E%3Cpath%20d%3D%22M378.3%2050Q382.1%2034.1%20381.6%2023.5Q382.0%2036.7%20386.3%2050Z%22%20fill%3D%22%2358D24A%22/%3E%3Cpath%20d%3D%22M385.6%2050Q389.0%2033.0%20387.7%2021.7Q388.8%2035.8%20393.6%2050Z%22%20fill%3D%22%231E8C2A%22/%3E%3Cpath%20d%3D%22M393.3%2050Q397.7%2032.2%20398.6%2020.4Q397.8%2035.2%20401.3%2050Z%22%20fill%3D%22%232BA334%22/%3E%3C/svg%3E") bottom/100% 100% no-repeat;z-index:2;pointer-events:none}
+body[data-theme="paste"] .p-img img{z-index:1}
+body[data-theme="paste"] .card-main::after{content:"";position:absolute;right:-4px;top:-6px;width:96px;height:62px;background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20170%20110%22%3E%3Cg%20transform%3D%22translate%280%208%29%22%3E%3Cg%20transform%3D%22rotate%28-16%2037%2050%29%22%3E%3Cpath%20d%3D%22M37%202C78%202%2078%2062%2070%2074%2058%2096%2016%2096%204%2074-4%2062-4%202%2037%202Z%22%20fill%3D%22%23E30613%22%20stroke%3D%22%23fff%22%20stroke-width%3D%223%22/%3E%3Cpolyline%20points%3D%224%2C50%2012%2C42%2022%2C56%2032%2C42%2042%2C56%2052%2C42%2062%2C56%2070%2C46%22%20fill%3D%22none%22%20stroke%3D%22%23FFE100%22%20stroke-width%3D%225%22/%3E%3Crect%20x%3D%222%22%20y%3D%2227%22%20width%3D%2270%22%20height%3D%225%22%20fill%3D%22%23FFE100%22/%3E%3Crect%20x%3D%225%22%20y%3D%2268%22%20width%3D%2264%22%20height%3D%225%22%20fill%3D%22%23FFE100%22/%3E%3C/g%3E%3C/g%3E%3Cg%20transform%3D%22translate%2870%2014%29%20scale%28.85%29%22%3E%3Cg%20transform%3D%22rotate%2812%2037%2050%29%22%3E%3Cpath%20d%3D%22M37%202C78%202%2078%2062%2070%2074%2058%2096%2016%2096%204%2074-4%2062-4%202%2037%202Z%22%20fill%3D%22%231559E0%22%20stroke%3D%22%23fff%22%20stroke-width%3D%223%22/%3E%3Cpolyline%20points%3D%224%2C50%2012%2C42%2022%2C56%2032%2C42%2042%2C56%2052%2C42%2062%2C56%2070%2C46%22%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%225%22/%3E%3Crect%20x%3D%222%22%20y%3D%2227%22%20width%3D%2270%22%20height%3D%225%22%20fill%3D%22%23fff%22/%3E%3Crect%20x%3D%225%22%20y%3D%2268%22%20width%3D%2264%22%20height%3D%225%22%20fill%3D%22%23fff%22/%3E%3C/g%3E%3C/g%3E%3Cg%20transform%3D%22translate%28118%2020%29%20scale%28.7%29%22%3E%3Cg%20transform%3D%22rotate%28-8%2037%2050%29%22%3E%3Cpath%20d%3D%22M37%202C78%202%2078%2062%2070%2074%2058%2096%2016%2096%204%2074-4%2062-4%202%2037%202Z%22%20fill%3D%22%23B620C9%22%20stroke%3D%22%23fff%22%20stroke-width%3D%223%22/%3E%3Cpolyline%20points%3D%224%2C50%2012%2C42%2022%2C56%2032%2C42%2042%2C56%2052%2C42%2062%2C56%2070%2C46%22%20fill%3D%22none%22%20stroke%3D%22%23FFE100%22%20stroke-width%3D%225%22/%3E%3Crect%20x%3D%222%22%20y%3D%2227%22%20width%3D%2270%22%20height%3D%225%22%20fill%3D%22%23FFE100%22/%3E%3Crect%20x%3D%225%22%20y%3D%2268%22%20width%3D%2264%22%20height%3D%225%22%20fill%3D%22%23FFE100%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;opacity:.95;pointer-events:none}
+body[data-theme="paste"] .card-main{position:relative}
+body[data-theme="paste"] .info{z-index:3}
+body[data-theme="paste"] .old{background:#fff}
+body[data-theme="paste"] .save{background:rgba(255,255,255,.85);border-radius:12px;padding:6px 8px}
+
+/* banda: mai mult spațiu între rânduri pe telefoane înguste */
+.hb-txt{gap:6px}
+.hb-txt b{line-height:1.12!important;padding-top:4px}
+.hb-txt small{line-height:1.1}

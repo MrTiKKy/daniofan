@@ -3,6 +3,7 @@
    Port 1:1 din js/social.js al prototipului static. */
 import * as DF from './store';
 import type { OfferData, Product, ResolvedOffer } from './types';
+import { getTheme, THEMES, type Theme, type ThemePalette } from './themes';
 
 export type FormatKey = 'square' | 'portrait' | 'story';
 /** Alias: previzualizarea de share = exact postarea pătrată. */
@@ -20,7 +21,9 @@ export const OG_HEIGHT = FORMATS.square.h;
 
 type Ctx = CanvasRenderingContext2D;
 type Rect = { x: number; y: number; w: number; h: number };
-const C = { red: '#E30613', redDark: '#A8000C', yellow: '#FFE100', yellowDeep: '#FFC400', blue: '#1559E0', blueDark: '#0A2A82', ink: '#121212', sgr: '#1B4FD6' };
+/** paleta temei curente (se setează la începutul fiecărei randări) */
+let C: ThemePalette = THEMES.standard.pal;
+let THEME: Theme = THEMES.standard;
 const FAM = '"Barlow Condensed", "Arial Narrow", Arial, sans-serif';
 const F = (w: number | string, s: number, it?: boolean) => `${it ? 'italic ' : ''}${w} ${Math.max(1, Math.round(s))}px ${FAM}`;
 const FB = (w: number | string, s: number) => `${w} ${Math.max(1, Math.round(s))}px Barlow, Arial, sans-serif`;
@@ -82,13 +85,117 @@ function star(ctx: Ctx, cx: number, cy: number, r: number, points: number) {
 function background(ctx: Ctx, W: number, H: number, cx: number, cy: number) {
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
   const R = Math.hypot(W, H);
-  ctx.save(); ctx.translate(cx, cy); ctx.fillStyle = '#FFF1A0';
+  ctx.save(); ctx.translate(cx, cy); ctx.fillStyle = C.burst;
   const n = 40;
   for (let i = 0; i < n; i++) { const a0 = (i / n) * Math.PI * 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, a0, a0 + (Math.PI / n) * 0.75); ctx.closePath(); ctx.fill(); }
   ctx.restore();
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.75);
   g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.45, 'rgba(255,255,255,.25)'); g.addColorStop(1, 'rgba(255,255,255,.96)');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  decorations(ctx, W, H);
+}
+
+/* ---------- decoruri de sezon (desenate, fără imagini externe) ---------- */
+const EGG_COLORS: [string, string][] = [['#E30613', '#FFE100'], ['#1559E0', '#fff'], ['#22B33A', '#FFE100'], ['#FF7A00', '#fff'], ['#B620C9', '#FFE100'], ['#FFC400', '#E30613']];
+export function egg(ctx: Ctx, cx: number, cy: number, h: number, rot: number, cols: [string, string]) {
+  const w = h * 0.74;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rad(rot));
+  const shape = () => { ctx.beginPath(); ctx.moveTo(0, -h / 2);
+    ctx.bezierCurveTo(w * 0.62, -h / 2, w * 0.68, h * 0.18, w * 0.5, h * 0.32);
+    ctx.bezierCurveTo(w * 0.3, h * 0.52, -w * 0.3, h * 0.52, -w * 0.5, h * 0.32);
+    ctx.bezierCurveTo(-w * 0.68, h * 0.18, -w * 0.62, -h / 2, 0, -h / 2); ctx.closePath(); };
+  ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = h * 0.08; ctx.shadowOffsetY = h * 0.04;
+  shape(); ctx.fillStyle = cols[0]; ctx.fill(); ctx.shadowColor = 'transparent';
+  ctx.save(); shape(); ctx.clip();
+  ctx.fillStyle = cols[1]; ctx.strokeStyle = cols[1]; ctx.lineWidth = h * 0.045; ctx.lineJoin = 'round';
+  // zig-zag + buline, ca la ouăle încondeiate
+  ctx.beginPath(); const zy = -h * 0.02, n = 7;
+  for (let i = 0; i <= n; i++) { const x = -w / 2 + (w * i) / n; ctx.lineTo(x, zy + (i % 2 ? -h * 0.07 : h * 0.07)); }
+  ctx.stroke();
+  ctx.fillRect(-w, -h * 0.22, w * 2, h * 0.05); ctx.fillRect(-w, h * 0.17, w * 2, h * 0.05);
+  [-0.25, 0, 0.25].forEach((k) => { ctx.beginPath(); ctx.arc(w * k, -h * 0.33, h * 0.04, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(w * k, h * 0.3, h * 0.035, 0, 7); ctx.fill(); });
+  ctx.restore();
+  ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.ellipse(-w * 0.2, -h * 0.25, w * 0.08, h * 0.12, rad(20), 0, 7); ctx.fill();
+  shape(); ctx.lineWidth = Math.max(2, h * 0.03); ctx.strokeStyle = '#fff'; ctx.stroke();
+  ctx.restore();
+}
+export function snowflake(ctx: Ctx, cx: number, cy: number, r: number, color: string, alpha = 1) {
+  ctx.save(); ctx.translate(cx, cy); ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineCap = 'round'; ctx.lineWidth = Math.max(2, r * 0.13);
+  for (let i = 0; i < 6; i++) {
+    ctx.save(); ctx.rotate((i * Math.PI) / 3);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -r);
+    ctx.moveTo(0, -r * 0.55); ctx.lineTo(r * 0.28, -r * 0.8); ctx.moveTo(0, -r * 0.55); ctx.lineTo(-r * 0.28, -r * 0.8);
+    ctx.moveTo(0, -r * 0.3); ctx.lineTo(r * 0.18, -r * 0.45); ctx.moveTo(0, -r * 0.3); ctx.lineTo(-r * 0.18, -r * 0.45);
+    ctx.stroke(); ctx.restore();
+  }
+  ctx.restore();
+}
+function decorations(ctx: Ctx, W: number, H: number) {
+  const s = Math.min(W, H);
+  if (THEME.key === 'paste') {
+    // ouă în colțuri + „iarbă" jos
+    ([[0.06, 0.12, 0.16, -18], [0.95, 0.1, 0.14, 16], [0.04, 0.55, 0.11, -10], [0.97, 0.6, 0.12, 12]] as const)
+      .forEach(([x, y, k, r], i) => egg(ctx, W * x, H * y, s * k, r, EGG_COLORS[i % EGG_COLORS.length]));
+  } else if (THEME.key === 'craciun') {
+    let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    for (let i = 0; i < 26; i++) snowflake(ctx, rnd() * W, rnd() * H, s * (0.015 + rnd() * 0.03), '#9EC9E8', 0.55);
+    ([[0.06, 0.1, 0.07], [0.94, 0.12, 0.08], [0.05, 0.6, 0.05], [0.96, 0.55, 0.06]] as const)
+      .forEach(([x, y, k]) => snowflake(ctx, W * x, H * y, s * k, '#fff', 1));
+    ([[0.06, 0.1, 0.07], [0.94, 0.12, 0.08], [0.05, 0.6, 0.05], [0.96, 0.55, 0.06]] as const)
+      .forEach(([x, y, k]) => snowflake(ctx, W * x, H * y, s * k * 0.8, '#5FA8D8', 1));
+  }
+}
+
+/* ---------- banda de sărbătoare (sus) ---------- */
+function holidayBand(ctx: Ctx, W: number, h: number) {
+  const b = THEME.banner; if (!b) return;
+  const P = C;
+  ctx.save();
+  const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, P.band); g.addColorStop(1, P.bandDark);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, h);
+  // raze în bandă
+  ctx.save(); ctx.globalAlpha = 0.14; ctx.fillStyle = '#fff'; ctx.translate(W / 2, h * 0.5);
+  for (let i = 0; i < 28; i++) { const a = (i / 28) * Math.PI * 2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, W, a, a + 0.06); ctx.closePath(); ctx.fill(); }
+  ctx.restore();
+  // margine de jos: ouă -> zig-zag galben; Crăciun -> dungi roșu/alb (baston)
+  const eh = Math.max(8, h * 0.11);
+  if (THEME.key === 'craciun') {
+    ctx.save(); ctx.beginPath(); ctx.rect(0, h - eh, W, eh); ctx.clip(); ctx.fillStyle = '#fff'; ctx.fillRect(0, h - eh, W, eh);
+    ctx.fillStyle = P.red; for (let x = -eh * 2; x < W + eh * 2; x += eh * 2) { ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x + eh, h); ctx.lineTo(x + eh * 2, h - eh); ctx.lineTo(x + eh, h - eh); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
+    ctx.fillStyle = P.yellowDeep; ctx.fillRect(0, 0, W, Math.max(3, h * 0.04));
+  } else {
+    ctx.fillStyle = P.yellowDeep; ctx.beginPath(); ctx.moveTo(0, h - eh);
+    for (let x = 0; x <= W + eh; x += eh) ctx.lineTo(x, (x / eh) % 2 ? h : h - eh);
+    ctx.lineTo(W, h - eh); ctx.lineTo(W, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fill();
+    ctx.fillRect(0, h - eh * 0.45, W, eh * 0.45);
+  }
+  const side = h >= 140 ? h * 1.2 : h * 1.15, inner = W - side * 2 - (h >= 140 ? h * 0.5 : 0);
+  const big = b[0], small = b[1];
+  if (h >= 140) { // story: două rânduri mari
+    const bs = fit(ctx, big, (z) => F(900, z, true), inner, h * 0.5);
+    const ss = fit(ctx, small, (z) => F(900, z, true), inner, h * 0.27);
+    const y1 = h * 0.08 + bs * 0.82, y2 = y1 + ss * 1.12;
+    text(ctx, big, W / 2, y1, { font: F(900, bs, true), align: 'center', color: P.bandText, stroke: P.bandDark, strokeW: bs * 0.16, shadow: { color: 'rgba(0,0,0,.35)', dx: bs * 0.04, dy: bs * 0.06 } });
+    text(ctx, small, W / 2, y2, { font: F(900, ss, true), align: 'center', color: '#fff', stroke: P.bandDark, strokeW: ss * 0.14 });
+  } else {
+  const bs = fit(ctx, big + '  ' + small, (z) => F(900, z, true), inner, h * 0.62);
+  ctx.font = F(900, bs, true); const bw = ctx.measureText(big + ' ').width;
+  const ss = bs * 0.62; ctx.font = F(900, ss, true); const sw = ctx.measureText(small).width;
+  let x0 = W / 2 - (bw + sw) / 2; const y = h * 0.44 + bs * 0.36;
+  if (bw + sw > inner) x0 = side;
+  text(ctx, big, x0, y, { font: F(900, bs, true), color: P.bandText, stroke: P.bandDark, strokeW: bs * 0.16, shadow: { color: 'rgba(0,0,0,.35)', dx: bs * 0.04, dy: bs * 0.06 } });
+  text(ctx, small, x0 + bw, y, { font: F(900, ss, true), color: '#fff', stroke: P.bandDark, strokeW: ss * 0.14 });
+  }
+  if (THEME.key === 'paste') {
+    egg(ctx, side * 0.36, h * 0.47, h * 0.66, -16, EGG_COLORS[0]); egg(ctx, side * 0.78, h * 0.5, h * 0.54, 14, EGG_COLORS[1]);
+    egg(ctx, W - side * 0.36, h * 0.47, h * 0.66, 16, EGG_COLORS[4]); egg(ctx, W - side * 0.78, h * 0.5, h * 0.54, -14, EGG_COLORS[3]);
+  } else {
+    const k = h >= 140 ? 0.8 : 1;
+    snowflake(ctx, side * 0.38, h * 0.45, h * 0.34 * k, '#fff'); snowflake(ctx, side * 0.85, h * 0.42, h * 0.2 * k, P.bandText);
+    snowflake(ctx, W - side * 0.38, h * 0.45, h * 0.34 * k, '#fff'); snowflake(ctx, W - side * 0.85, h * 0.42, h * 0.2 * k, P.bandText);
+  }
+  ctx.restore();
 }
 
 /* ---------- logo (recreat, nu copiat) ---------- */
@@ -161,7 +268,32 @@ function title(ctx: Ctx, cx: number, top: number, maxW: number, offer: ResolvedO
 }
 
 /* ---------- elementele unui produs ---------- */
+function grass(ctx: Ctx, x: number, y: number, w: number, h: number, front: boolean) { // y = baza
+  let seed = Math.round(x * 7 + w); const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const n = Math.max(10, Math.round(w / (front ? 9 : 6)));
+  const cols = front ? ['#3DBE3A', '#58D24A', '#2EA22E'] : ['#1E8C2A', '#2BA334', '#167022'];
+  for (let i = 0; i < n; i++) {
+    const bx = x + (w * (i + rnd() * 0.8)) / n, bh = h * (front ? 0.35 + rnd() * 0.45 : 0.6 + rnd() * 0.4), bw = w / n * 1.6, lean = (rnd() - 0.5) * bh * 0.6;
+    ctx.beginPath(); ctx.moveTo(bx - bw / 2, y); ctx.quadraticCurveTo(bx + lean * 0.3, y - bh * 0.6, bx + lean, y - bh); ctx.quadraticCurveTo(bx + lean * 0.4, y - bh * 0.5, bx + bw / 2, y); ctx.closePath();
+    ctx.fillStyle = cols[i % 3]; ctx.fill();
+  }
+}
+function snowMound(ctx: Ctx, x: number, y: number, w: number, h: number) {
+  ctx.save(); ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,40,80,.25)'; ctx.shadowBlur = h * 0.3;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + w * 0.2, y - h * 1.1, x + w * 0.45, y - h * 0.7); ctx.quadraticCurveTo(x + w * 0.7, y - h * 1.2, x + w, y); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
 function drawImage(ctx: Ctx, img: HTMLImageElement | null | undefined, x: number, y: number, w: number, h: number) {
+  const gh = Math.min(h * 0.16, w * 0.22);
+  if (THEME.key === 'paste') {
+    grass(ctx, x, y + h, w, gh * 1.3, false);
+    egg(ctx, x + w * 0.1, y + h - gh * 0.55, gh * 1.15, -18, EGG_COLORS[(Math.round(x + y) >> 3) % EGG_COLORS.length]);
+    egg(ctx, x + w * 0.9, y + h - gh * 0.5, gh * 0.95, 16, EGG_COLORS[((Math.round(x + y) >> 3) + 2) % EGG_COLORS.length]);
+  } else if (THEME.key === 'craciun') snowMound(ctx, x + w * 0.05, y + h, w * 0.9, gh * 0.8);
+  drawImageRaw(ctx, img, x, y, w, h);
+  if (THEME.key === 'paste') grass(ctx, x + w * 0.12, y + h, w * 0.76, gh * 0.55, true);
+}
+function drawImageRaw(ctx: Ctx, img: HTMLImageElement | null | undefined, x: number, y: number, w: number, h: number) {
   if (!img) {
     ctx.save(); ctx.strokeStyle = '#ccc'; ctx.setLineDash([10, 8]); ctx.lineWidth = 3; rrect(ctx, x + 6, y + 6, w - 12, h - 12, 14); ctx.stroke();
     text(ctx, 'FĂRĂ POZĂ', x + w / 2, y + h / 2, { font: F(900, Math.min(w * 0.16, 40)), align: 'center', color: '#aaa' }); ctx.restore(); return;
@@ -236,15 +368,65 @@ function ribbon(ctx: Ctx, x: number, y: number, w: number, h: number) {
   ctx.restore();
 }
 
+export function bell(ctx: Ctx, cx: number, cy: number, r: number) { // zurgălău auriu
+  ctx.save(); ctx.translate(cx, cy);
+  const g = ctx.createRadialGradient(-r * 0.35, -r * 0.35, r * 0.1, 0, 0, r); g.addColorStop(0, '#FFF3B0'); g.addColorStop(0.5, '#F2C230'); g.addColorStop(1, '#A87400');
+  ctx.shadowColor = 'rgba(0,0,0,.3)'; ctx.shadowBlur = r * 0.3; ctx.shadowOffsetY = r * 0.15;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fillStyle = g; ctx.fill(); ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = '#7A5200'; ctx.lineWidth = r * 0.12; ctx.beginPath(); ctx.moveTo(-r * 0.85, -r * 0.05); ctx.lineTo(r * 0.85, -r * 0.05); ctx.stroke();
+  ctx.fillStyle = '#5A3C00'; ctx.beginPath(); ctx.arc(0, r * 0.38, r * 0.17, 0, 7); ctx.fill(); ctx.fillRect(-r * 0.05, r * 0.38, r * 0.1, r * 0.45);
+  ctx.beginPath(); ctx.arc(0, -r * 1.05, r * 0.2, 0, 7); ctx.strokeStyle = '#A87400'; ctx.lineWidth = r * 0.1; ctx.stroke();
+  ctx.restore();
+}
+function bells(ctx: Ctx, cx: number, top: number, r: number) { // doi zurgălăi legați cu fundă
+  ctx.save(); ctx.strokeStyle = '#0B6B36'; ctx.lineWidth = r * 0.22;
+  ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx - r * 0.9, top + r * 1.3); ctx.moveTo(cx, top); ctx.lineTo(cx + r * 0.9, top + r * 1.5); ctx.stroke(); ctx.restore();
+  bell(ctx, cx - r * 0.95, top + r * 2.1, r); bell(ctx, cx + r * 0.95, top + r * 2.3, r);
+  ctx.save(); ctx.fillStyle = C.red; ctx.strokeStyle = '#fff'; ctx.lineWidth = r * 0.08;
+  [-1, 1].forEach((sd) => { ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx + sd * r * 0.9, top - r * 0.5); ctx.lineTo(cx + sd * r * 0.9, top + r * 0.45); ctx.closePath(); ctx.fill(); ctx.stroke(); });
+  ctx.beginPath(); ctx.arc(cx, top, r * 0.25, 0, 7); ctx.fill(); ctx.restore();
+}
+function cardBg(ctx: Ctx, x: number, y: number, w: number, h: number, hero: boolean) {
+  ctx.save();
+  if (THEME.key === 'craciun') {
+    ctx.fillStyle = '#4A0008'; rrect(ctx, x, y + 7, w, h, 22); ctx.fill();
+    const g = ctx.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, '#E0142B'); g.addColorStop(1, '#9A0014');
+    ctx.fillStyle = g; ctx.strokeStyle = C.yellowDeep; ctx.lineWidth = 4; rrect(ctx, x, y, w, h, 22); ctx.fill(); ctx.stroke();
+    ctx.save(); rrect(ctx, x, y, w, h, 22); ctx.clip();
+    let seed = Math.round(x * 3 + y); const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    for (let i = 0; i < 18; i++) snowflake(ctx, x + rnd() * w, y + rnd() * h, Math.min(w, h) * (0.02 + rnd() * 0.035), '#fff', 0.55);
+    for (let i = 0; i < 40; i++) { ctx.beginPath(); ctx.arc(x + rnd() * w, y + rnd() * h, 1.5 + rnd() * 2.5, 0, 7); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fill(); }
+    ctx.restore();
+  } else if (THEME.key === 'paste') {
+    ctx.fillStyle = hero ? C.redDark : '#0E5A1E'; rrect(ctx, x, y + 7, w, h, 22); ctx.fill();
+    const g = ctx.createLinearGradient(x, y, x, y + h); g.addColorStop(0, '#FFFDE8'); g.addColorStop(0.55, '#F2FBC9'); g.addColorStop(1, '#D9F3A0');
+    ctx.fillStyle = g; ctx.strokeStyle = hero ? C.red : '#0E5A1E'; ctx.lineWidth = 3; rrect(ctx, x, y, w, h, 22); ctx.fill(); ctx.stroke();
+    ctx.save(); rrect(ctx, x, y, w, h, 22); ctx.clip();
+    let seed = Math.round(x * 3 + y); const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    for (let i = 0; i < 10; i++) { // flori mici de primăvară
+      const fx = x + rnd() * w, fy = y + rnd() * h, fr = Math.min(w, h) * 0.018;
+      ctx.fillStyle = 'rgba(255,196,0,.35)'; for (let k = 0; k < 5; k++) { const a = k * 1.2566; ctx.beginPath(); ctx.arc(fx + Math.cos(a) * fr, fy + Math.sin(a) * fr, fr * 0.8, 0, 7); ctx.fill(); }
+    }
+    ctx.restore();
+  } else {
+    ctx.fillStyle = hero ? C.redDark : '#111'; rrect(ctx, x, y + 7, w, h, 22); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.97)'; ctx.strokeStyle = hero ? C.red : '#111'; ctx.lineWidth = 3;
+    rrect(ctx, x, y, w, h, 22); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+}
+function xmasPanel(ctx: Ctx, x: number, y: number, w: number, h: number, pad: number) { // panou crem pentru contrast + zurgălăi
+  const rh = w / h > 1.7 ? clamp(h * 0.1, 20, 60) : clamp(Math.min(h * 0.085, w * 0.11), 20, 58);
+  ctx.save(); ctx.fillStyle = 'rgba(255,252,244,.96)'; ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 8;
+  rrect(ctx, x + pad * 0.5, y + pad * 0.5, w - pad, h - pad * 1.5 - rh, 16); ctx.fill(); ctx.restore();
+  const r = clamp(Math.min(w, h) * 0.05, 11, 30);
+  bells(ctx, x + w - pad * 0.4 - r * 2, y + r * 0.7, r);
+}
 function cell(ctx: Ctx, p: Product, r: Rect, img: HTMLImageElement | null | undefined, hero: boolean) {
   const { x, y, w, h } = r;
-  // card alb
-  ctx.save();
-  ctx.fillStyle = hero ? C.redDark : '#111'; rrect(ctx, x, y + 7, w, h, 22); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.97)'; ctx.strokeStyle = hero ? C.red : '#111'; ctx.lineWidth = 3;
-  rrect(ctx, x, y, w, h, 22); ctx.fill(); ctx.stroke();
-  ctx.restore();
-  const pad = clamp(Math.min(w, h) * 0.045, 8, 26);
+  cardBg(ctx, x, y, w, h, hero);
+  const pad = clamp(Math.min(w, h) * 0.045, 8, 26) * (THEME.key === 'craciun' ? 1.35 : 1);
+  if (THEME.key === 'craciun') xmasPanel(ctx, x, y, w, h, pad);
   const rh = w / h > 1.7 ? clamp(h * 0.1, 20, 60) : clamp(Math.min(h * 0.085, w * 0.11), 20, 58);
   ribbon(ctx, x + pad * 0.6, y + h - rh - pad * 0.7, w - pad * 1.2, rh);
   const I = { x: x + pad, y: y + pad, w: w - pad * 2, h: h - pad * 2 - rh - pad * 0.4 };
@@ -337,9 +519,14 @@ function gridRects(area: Rect, n: number, cols: number, gap: number): Rect[] {
 export async function render(data: OfferData, fmtKey: RenderFormatKey): Promise<HTMLCanvasElement> {
   await ensureFonts();
   const fmt = FORMATS[fmtKey];
-  const W = fmt.w, H = fmt.h;
-  const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+  const W = fmt.w;
+  const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = fmt.h;
   const ctx = canvas.getContext('2d') as Ctx;
+  THEME = getTheme(data.offer?.theme); C = THEME.pal;
+  // tema de sărbătoare: bandă sus, restul compoziției se mută dedesubt
+  const BH = THEME.banner ? (fmtKey === 'story' ? 200 : fmtKey === 'portrait' ? 104 : 92) : 0;
+  if (BH) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, fmt.h); holidayBand(ctx, W, BH); ctx.translate(0, BH); ctx.beginPath(); ctx.rect(0, 0, W, fmt.h - BH); ctx.clip(); }
+  const H = fmt.h - BH;
   const offer = DF.resolveOffer(data);
   const list = DF.activeProducts(data);
   const hero = DF.heroOf(list);
@@ -374,7 +561,7 @@ export async function render(data: OfferData, fmtKey: RenderFormatKey): Promise<
 
   // portret / story / square cu >4 laterale: antet sus, vedeta pe un rând, restul în grilă
   const story = fmtKey === 'story', square = fmtKey === 'square';
-  const topSafe = story ? 150 : 22;
+  const topSafe = story ? (BH ? 30 : 150) : 22;
   const footH = story ? 0 : (fmtKey === 'portrait' ? 62 : 46);
   const storyFootH = story ? 230 : 0;
   let tb: number;

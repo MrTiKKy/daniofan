@@ -11,6 +11,8 @@ import { download, num, processImage } from '@/lib/image';
 import type { LocalStats, OfferData, Product } from '@/lib/types';
 import ProductRow, { type FieldKey, type RowAction } from './ProductRow';
 import Stats from './Stats';
+import { loadDefaultOffer } from '@/data/offer';
+import { THEMES, THEME_KEYS, type ThemeKey } from '@/lib/themes';
 
 /** Datele salvate + momentul salvării (status, QR și imaginile se refac după salvare, ca în original). */
 type Snapshot = { data: OfferData; at: Date };
@@ -187,6 +189,24 @@ export default function AdminPanel() {
     commit({ ...d, offer }, { offer: true, products: true });
   };
 
+  /** Încarcă o ofertă demo potrivită temei (aceleași produse demo, alte titluri / date / vedete) */
+  const loadDemo = async (theme: ThemeKey) => {
+    const def = await loadDefaultOffer();
+    const d = cur();
+    const pick = (hero: string, price: Record<string, number>) => def.products.map((p) => ({ ...p, hero: p.id === hero, newPrice: price[p.id] ?? p.newPrice }));
+    const demos: Record<ThemeKey, OfferData['offer'] & { products: Product[] }> = {
+      standard: { ...def.offer, theme: 'standard', products: def.products },
+      paste: { title: 'Oferte de PAȘTE', start: '2027-04-26', end: '2027-05-02', autoDates: false, theme: 'paste',
+        products: pick('timisoreana-25-pet', { 'timisoreana-25-pet': 7.99, 'ciucas-05-pet': 2.29 }) },
+      craciun: { title: 'Oferte de CRĂCIUN', start: '2026-12-14', end: '2026-12-24', autoDates: false, theme: 'craciun',
+        products: pick('heineken-033-sticla', { 'heineken-033-sticla': 3.79, 'ursus-033-sticla': 2.99 }) },
+    };
+    const { products, ...offer } = demos[theme];
+    commit({ ...d, offer, products }, { offer: true, products: true });
+    flash('✓ Demo ' + THEMES[theme].label + ' încărcat. Pliantul clienților s-a actualizat.');
+  };
+  const onTheme = (theme: ThemeKey) => { const d = cur(); commit({ ...d, offer: { ...d.offer, theme } }); };
+
   /* ---------- 2. produse ---------- */
   const setProducts = (products: Product[], opts?: { products?: boolean }) => commit({ ...cur(), products }, opts);
   const onField = (i: number, k: FieldKey, value: string) => {
@@ -284,6 +304,28 @@ export default function AdminPanel() {
             <label>Se termină<input key={'e' + offerKey} ref={endRef} id="o-end" type="date" defaultValue={resolved ? DF.toISODate(resolved.end) : ''} onChange={onDates} /></label>
           </div>
           <label className="chk"><input id="o-auto" type="checkbox" checked={!!data?.offer.autoDates} onChange={onAuto} /> Date automate pentru demo (weekendul curent: vineri–duminică)</label>
+          <div className="demo-pick">
+            <span className="tp-lbl">Demo șablon — încarcă o ofertă completă, gata de arătat</span>
+            <div className="tp-opts">
+              {THEME_KEYS.map((k) => (
+                <button key={k} type="button" className={'btn dp-btn dp-' + k} id={'demo-' + k} onClick={() => loadDemo(k)}>{'Demo ' + THEMES[k].label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="theme-pick" role="radiogroup" aria-label="Tema pliantului">
+            <span className="tp-lbl">Tema pliantului și a imaginilor Facebook</span>
+            <div className="tp-opts">
+              {THEME_KEYS.map((k) => {
+                const on = (data?.offer.theme || 'standard') === k;
+                return (
+                  <button key={k} type="button" role="radio" aria-checked={on} className={'tp-opt tp-' + k + (on ? ' on' : '')} id={'theme-' + k} onClick={() => onTheme(k)}>
+                    <span className="tp-sw" aria-hidden="true"><i style={{ background: THEMES[k].pal.band }} /><i style={{ background: THEMES[k].pal.red }} /><i style={{ background: THEMES[k].pal.yellow }} /></span>
+                    {THEMES[k].label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <p className="help">După data de sfârșit, produsele dispar singure din pliant. Nu mai trebuie șters nimic manual.</p>
         </section>
 

@@ -6,6 +6,7 @@ import * as DF from '@/lib/store';
 import type { OfferData, Product, ResolvedOffer } from '@/lib/types';
 import { CartIcon, ClockIcon, DownIcon, PhoneIcon, PinIcon, WhatsappIcon } from '@/components/icons';
 import ProductCard from './ProductCard';
+import { HolidayBand, HolidayBg, Snowfall } from './HolidayDecor';
 
 /** Datele + momentul la care s-a făcut ultima randare completă (ca render() din original). */
 type View = { data: OfferData; at: Date };
@@ -132,6 +133,9 @@ export default function Flyer() {
 
   /* ---------- date derivate ---------- */
   const data = view?.data ?? null;
+  const themeKey = data?.offer.theme || 'standard';
+  // tema se aplică pe <body> (culori, fundal, decoruri din styles/themes.css)
+  useEffect(() => { document.body.dataset.theme = themeKey; }, [themeKey]);
   const offer = view ? DF.resolveOffer(view.data, view.at) : null;
   const list = view ? DF.activeProducts(view.data, view.at) : [];
   const hero = DF.heroOf(list);
@@ -153,8 +157,11 @@ export default function Flyer() {
 
   return (
     <>
+      <HolidayBand theme={data?.offer.theme} />
+      <Snowfall theme={data?.offer.theme} />
       <header className="top">
         <div className="burst-bg"></div>
+        <HolidayBg theme={data?.offer.theme} />
         <div className="wrap">
           <div className="logo" role="img" aria-label="Daniofan Market">
             <span className="l1">Daniofan</span>
