@@ -4,14 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/download-u2netp.mjs && next build",
     "start": "next start",
     "lint": "eslint",
-    "download-u2net": "node scripts/download-u2net.mjs"
+    "download-u2net": "node scripts/download-u2net.mjs",
+    "download-u2netp": "node scripts/download-u2netp.mjs"
   },
   "dependencies": {
     "next": "16.4.0",
     "onnxruntime-node": "^1.30.0",
+    "onnxruntime-web": "^1.30.0",
     "qrcode-generator": "2.0.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",

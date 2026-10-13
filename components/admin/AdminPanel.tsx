@@ -157,11 +157,16 @@ export default function AdminPanel() {
     else setProducts(P.map((x, j) => (j === i ? { ...x, sgr: checked } : x)));
   };
   const onImage = async (i: number, file: File) => {
-    flash('Se prelucrează poza…');
+    const cut = !!cutBgRef.current?.checked;
+    flash(cut ? 'Se taie fundalul (U-2-Net în browser)…' : 'Se prelucrează poza…');
     try {
-      const image = await processImage(file, !!cutBgRef.current?.checked);
+      const image = await processImage(file, cut);
       setProducts(cur().products.map((x, j) => (j === i ? { ...x, image } : x)), { products: true });
-    } catch { flash('Poza nu a putut fi citită. Încercați JPG sau PNG.', true); }
+      flash('✓ Poză actualizată.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Poza nu a putut fi prelucrată.';
+      flash(msg, true);
+    }
   };
   const onAction = (i: number, act: RowAction) => {
     const P = cur().products.slice();
@@ -242,7 +247,7 @@ export default function AdminPanel() {
         <section className="a-card">
           <div className="h-row"><h2><span className="step">2</span>Produsele din ofertă</h2><button className="btn a-add" id="add-top" type="button" onClick={() => addProduct(true)}>+ Adaugă produs</button></div>
           <label className="chk"><input ref={cutBgRef} id="cut-bg" type="checkbox" defaultChecked /> La poze noi: decupează automat fundalul</label>
-          <p className="help">Fundalul se taie cu U-2-Net (licență comercială OK)</p>
+          <p className="help">Fundalul se taie în browser cu U-2-Net / u2netp (Apache-2.0, comercial OK) — merge și pe Vercel. La primul upload se încarcă modelul (~5 MB).</p>
           <div id="products">
             {data && resolved ? (n
               ? data.products.map((p, i) => <ProductRow key={productsKey + ':' + i} p={p} i={i} n={n} offer={resolved} onField={onField} onCheck={onCheck} onImage={onImage} onAction={onAction} />)

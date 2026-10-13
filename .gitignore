@@ -40,8 +40,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# U-2-Net ONNX weights (~176 MB) — descarcă cu: npm run download-u2net
+# U-2-Net ONNX weights — descarcă cu npm run download-u2net / download-u2netp
 /models/u2net/*.onnx
 /models/u2net/*.partial
-
+/public/models/*.onnx
+/public/models/*.partial
 *.onnx
+!public/models/.gitkeep
+

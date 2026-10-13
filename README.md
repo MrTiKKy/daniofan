@@ -7,7 +7,7 @@ Prototipul demonstrativ pentru întâlnirea cu Daniofan, portat în **Next.js** 
 | Pagina | Ce face |
 |---|---|
 | `/` | **Pliantul clientului.** Un singur scroll, fără meniuri, fără login. Text mare, prețuri mari, numărătoare inversă „Oferta se termină în X zile”, produs vedetă, butoane mari „Sună la magazin” / „Cum ajung” (bara fixă de jos), „Trimite pe WhatsApp” pentru tot pliantul și pentru fiecare produs. Ofertele expirate dispar singure. |
-| `/admin` | **Panoul angajaților (demo, fără parolă).** Titlul și datele ofertei, produsele (adaugă / modifică / șterge / reordonează, poză cu decupare automată a fundalului via U-2-Net, vedetă, SGR, „valabil până la”). Se salvează automat, iar pliantul se actualizează imediat (și în alt tab deschis). |
+| `/admin` | **Panoul angajaților (demo, fără parolă).** Titlul și datele ofertei, produsele (adaugă / modifică / șterge / reordonează, poză cu decupare fundal U-2-Net în browser, vedetă, SGR, „valabil până la”). Se salvează automat, iar pliantul se actualizează imediat (și în alt tab deschis). |
 | `/admin` → secțiunea 3 | **Imaginile pentru Facebook, generate automat** în stilul pliantului lor: 1080×1080, 1080×1350, Story 1080×1920, descărcabile ca PNG. |
 | `/admin` → secțiunea 4 | **Cod QR** spre pliant + afiș A5 de printat pentru casa de marcat. |
 | `/admin` → secțiunea 5 | **Statistici (DATE DEMO)**: cifre simulate + click-urile reale din acest browser (vizualizări de produs, trimiteri pe WhatsApp, „Sună”, „Cum ajung”). |
@@ -21,23 +21,24 @@ Ai nevoie de **Node.js 20.9 sau mai nou** (recomandat Node 22 LTS, de pe nodejs.
 
 ```bash
 npm install
-npm run download-u2net   # ~176 MB: greutăți ONNX U-2-Net (o singură dată)
+npm run download-u2netp   # ~5 MB: u2netp pentru browser (și pe Vercel)
 npm run dev
 ```
 
 3. Deschizi `http://localhost:3000/` (pliantul) și `http://localhost:3000/admin` (panoul).
 
-**Important:** eliminarea de fundal (`/api/remove-bg`) rulează pe Node (onnxruntime-node + sharp). Ai nevoie de `npm run dev` sau `npm start` — nu merge pe static export / `file://`.
+**Eliminarea de fundal** rulează **în browser** (onnxruntime-web + `public/models/u2netp.onnx`). Merge local și pe Vercel. La primul upload cu checkbox-ul activ se încarcă modelul (~5 MB).
 
 Modificările din cod se văd imediat în browser, fără restart.
 
 Alte comenzi:
 
 ```bash
-npm run build           # build de producție (verifică și TypeScript)
-npm start               # pornește build-ul de producție pe http://localhost:3000
-npm run lint            # verificare ESLint
-npm run download-u2net  # (re)descarcă u2net.onnx în models/u2net/
+npm run build            # descarcă u2netp dacă lipsește + build producție
+npm start                # pornește build-ul de producție pe http://localhost:3000
+npm run lint             # verificare ESLint
+npm run download-u2netp  # (re)descarcă u2netp.onnx în public/models/
+npm run download-u2net   # opțional: u2net full (~176 MB) pentru API Node / VPS
 ```
 
 ### Demo pe telefon
@@ -55,32 +56,25 @@ Apoi deschizi pe telefon `http://IP-ul-laptopului:3000/` (IP-ul îl afli cu `ipc
 
 > Datele modificate din panou stau în `localStorage`-ul browserului, deci laptopul și telefonul au fiecare datele lui. Pentru demo: editezi pe laptop și arăți pe laptop (două taburi alăturate: panou + pliant), iar pe telefon arăți pliantul cu oferta implicită.
 
-## Eliminarea fundalului (U-2-Net)
+## Eliminarea fundalului (U-2-Net în browser)
 
-Când bifezi „decupează automat fundalul” în panou, poza e redimensionată (max. 700 px), apoi trimisă la `POST /api/remove-bg`. Serverul rulează **U-2-Net** (`u2net.onnx`, ~176 MB) și întoarce un PNG cu canal alpha. Clientul taie marginile transparente și salvează WebP.
+Când bifezi „decupează automat fundalul” în panou, poza e redimensionată (max. 700 px), apoi **U-2-Net u2netp** rulează în browser (WASM). Rezultatul e PNG cu alpha, apoi crop + WebP.
 
 - Model original: [xuebinqin/U-2-Net](https://github.com/xuebinqin/U-2-Net) — **Apache-2.0**, ok pentru produs plătit / comercial (cu atribuire). Vezi `LICENSE-U2NET.md`.
-- Greutăți ONNX din proiect: `models/u2net/u2net.onnx` (distribuite via [rembg](https://github.com/danielgatis/rembg); weights = U-2-Net). Nu sunt în git; se descarcă cu `npm run download-u2net`.
-- La eșec (model lipsă, timeout etc.) panoul face fallback la vechiul flood-fill pe alb și scrie un `console.warn`.
+- Greutăți browser: `public/models/u2netp.onnx` (~4.7 MB, via [rembg](https://github.com/danielgatis/rembg)). Se descarcă cu `npm run download-u2netp` (inclus la `npm run build` pe Vercel).
+- Runtime WASM: `onnxruntime-web` de pe CDN (jsDelivr), inferență 100% în client.
+- **Nu** folosim flood-fill pe alb (mănâncă ambalajele albe tip Sensodyne / Lenor). La eșec apare un mesaj în panou.
+- Opțional pe VPS: `npm run download-u2net` + `POST /api/remove-bg` (u2net full ~176 MB, Node). Panoul implicit folosește browserul.
 
-Smoke-test rapid (cu `npm run dev` pornit):
+### Vercel
 
-```bash
-curl -sS -X POST http://localhost:3000/api/remove-bg \
-  -F "file=@public/img/products/ursus.png" \
-  -o /tmp/ursus-nobg.png
-file /tmp/ursus-nobg.png   # trebuie: PNG image data, … RGBA
-```
-
-### Limitări pe Vercel
-
-- Modelul ONNX (~176 MB) + onnxruntime-node nu încap confortabil pe serverless (limite de bundle / memorie / durată). Pe hobby/pro tipic: timeout, cold start greu, sau modelul nu e în deploy.
-- Pentru produs real: rulează local (`npm run dev` / `npm start`) sau pe un VPS/Node cu discul modelului inclus.
-- Dacă publici pe Vercel fără model, checkbox-ul rămâne util: clientul cade pe flood-fill.
+- Decuparea **merge pe Vercel**: modelul e asset static + inferență în client.
+- Primul upload cu tăiere poate dura câteva secunde (download model + WASM).
+- Pe telefoane slabe poate fi mai lent; pe laptop e ok pentru demo / magazin.
 
 ## Publicare pe Vercel
 
-Pliantul nu are nevoie de variabile de mediu și nici de bază de date. Pentru U-2-Net, vezi limitările de mai sus.
+Pliantul nu are nevoie de variabile de mediu și nici de bază de date. `npm run build` descarcă automat `u2netp.onnx` dacă lipsește.
 
 1. Urci proiectul pe GitHub (în terminal, din folderul proiectului):
 
@@ -124,12 +118,15 @@ components/
 lib/
   store.ts                            date, calcule (reduceri, statusuri, date automate, countdown), localStorage, statistici
   social.ts                           generatorul de imagini Facebook pe <canvas>
-  image.ts                            micșorarea pozelor + decuparea fundalului (U-2-Net / fallback)
+  image.ts                            micșorarea pozelor + decupare fundal (browser u2netp)
+  remove-bg-browser.ts                U-2-Net u2netp + onnxruntime-web (client)
   qr.ts                               codul QR (qrcode-generator, MIT)
   types.ts                            tipurile datelor (OfferData, Product, ...)
-app/api/remove-bg/route.ts            POST: eliminare fundal U-2-Net → PNG
-models/u2net/                         u2net.onnx (descarcă cu npm run download-u2net)
-scripts/download-u2net.mjs            descarcă greutățile ONNX (rembg / U-2-Net)
+app/api/remove-bg/route.ts            opțional: U-2-Net full pe Node/VPS
+public/models/u2netp.onnx             model browser (~5 MB; npm run download-u2netp)
+models/u2net/                         opțional: u2net.onnx full (npm run download-u2net)
+scripts/download-u2netp.mjs           descarcă u2netp pentru Vercel/browser
+scripts/download-u2net.mjs            descarcă u2net full pentru API Node
 LICENSE-U2NET.md                      Apache-2.0 + atribuire Xuebin Qin / U-2-Net
 data/
   offer.json                          oferta implicită (cele 5 beri din pliantul lor)
@@ -154,7 +151,7 @@ docs/comparison/      capturi comparative: prototipul static vs. Next.js
 
 - Fără backend: datele sunt per browser (`localStorage`), fără conturi, fără sincronizare între dispozitive. În versiunea reală: bază de date + login pentru angajați.
 - Statisticile sunt simulate (marcate „DATE DEMO”), plus click-urile locale.
-- Decuparea fundalului folosește U-2-Net local (Apache-2.0, comercial OK); pe Vercel serverless e limitat — vezi secțiunea de mai sus. Fallback: flood-fill pe alb.
+- Decuparea fundalului folosește U-2-Net u2netp în browser (Apache-2.0, comercial OK); merge pe Vercel.
 - Linkul de WhatsApp duce la o adresă încă nepublicată (`oferte.daniofan.ro`) când rulezi local.
 
 ## Diferențe față de prototipul static
