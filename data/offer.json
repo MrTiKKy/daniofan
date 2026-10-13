@@ -1,0 +1,79 @@
+{
+  "store": {
+    "name": "Daniofan Market",
+    "address": "Șos. Râmnicu Sărat 74, Brăila",
+    "phone": "+40700000000",
+    "phoneLabel": "07XX XXX XXX (de completat)",
+    "hours": "Luni–Duminică (program de completat)",
+    "mapsUrl": "https://www.google.com/maps/search/?api=1&query=Daniofan%20Market%2C%20%C8%98os.%20R%C3%A2mnicu%20S%C4%83rat%2074%2C%20Br%C4%83ila",
+    "publicUrl": "https://oferte.daniofan.ro"
+  },
+  "offer": {
+    "title": "Ofertă de WEEK-END",
+    "start": "2026-09-25",
+    "end": "2026-09-27",
+    "autoDates": true
+  },
+  "products": [
+    {
+      "id": "ciucas-05-pet",
+      "name": "Ciucaș",
+      "size": "0.5L Pet",
+      "oldPrice": 3.55,
+      "newPrice": 2.35,
+      "category": "Bere",
+      "hero": true,
+      "sgr": true,
+      "image": "img/products/ciucas.png",
+      "validUntil": ""
+    },
+    {
+      "id": "timisoreana-05-doza",
+      "name": "Timișoreana",
+      "size": "0.5L Doză",
+      "oldPrice": 3.19,
+      "newPrice": 2.99,
+      "category": "Bere",
+      "hero": false,
+      "sgr": true,
+      "image": "img/products/timisoreana-doza.png",
+      "validUntil": ""
+    },
+    {
+      "id": "timisoreana-25-pet",
+      "name": "Timișoreana",
+      "size": "2.5L Pet",
+      "oldPrice": 9.89,
+      "newPrice": 8.99,
+      "category": "Bere",
+      "hero": false,
+      "sgr": true,
+      "image": "img/products/timisoreana-25l.png",
+      "validUntil": ""
+    },
+    {
+      "id": "heineken-033-sticla",
+      "name": "Heineken",
+      "size": "0.33L Sticlă",
+      "oldPrice": 4.69,
+      "newPrice": 4.19,
+      "category": "Bere",
+      "hero": false,
+      "sgr": true,
+      "image": "img/products/heineken.png",
+      "validUntil": ""
+    },
+    {
+      "id": "ursus-033-sticla",
+      "name": "Ursus",
+      "size": "0.33L Sticlă",
+      "oldPrice": 3.5,
+      "newPrice": 3.15,
+      "category": "Bere",
+      "hero": false,
+      "sgr": true,
+      "image": "img/products/ursus.png",
+      "validUntil": ""
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+qrcode.js — qrcode-generator 2.0.4, (c) 2009 Kazuhiko Arase, MIT License. https://github.com/kazuhikoarase/qrcode-generator
+fonts/ — Barlow și Barlow Condensed (Jeremy Tribby), SIL Open Font License 1.1, via @fontsource.
