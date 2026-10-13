@@ -118,6 +118,40 @@ export default function AdminPanel() {
   const downloadSocial = (k: FormatKey) => { const u = socialUrlsRef.current[k]; if (u) download(u, fileName(k)); };
   const downloadAll = () => (Object.keys(socialUrlsRef.current) as FormatKey[]).forEach((k, i) => setTimeout(() => downloadSocial(k), i * 400));
 
+  const publishOgShare = async () => {
+    const d = dataRef.current;
+    if (!d) { flash('Nu există date de publicat.', true); return; }
+    const secret = process.env.NEXT_PUBLIC_ADMIN_SECRET || '';
+    if (!secret) {
+      flash('Lipsește NEXT_PUBLIC_ADMIN_SECRET (același ca ADMIN_SECRET pe server).', true);
+      return;
+    }
+    flash('Se publică imaginea pentru share…');
+    try {
+      const canvas = await Social.render(d, Social.OG_FORMAT);
+      const blob = await Social.toBlob(canvas);
+      if (!blob) throw new Error('Nu s-a putut genera PNG-ul');
+      const offer = DF.resolveOffer(d);
+      const period = DF.fmtRange(offer.start, offer.end);
+      const form = new FormData();
+      form.append('file', blob, 'og.png');
+      form.append('title', offer.title);
+      form.append('period', period);
+      form.append('width', String(Social.OG_WIDTH));
+      form.append('height', String(Social.OG_HEIGHT));
+      const res = await fetch('/api/og-image', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${secret}` },
+        body: form,
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string; version?: number };
+      if (!res.ok) throw new Error(body.error || res.statusText);
+      flash('✓ Imagine publicată pentru Facebook / WhatsApp. Reîmprospătați previzualizarea în Sharing Debugger.');
+    } catch (err) {
+      flash(err instanceof Error ? err.message : 'Publicarea a eșuat.', true);
+    }
+  };
+
   /* ---------- 5. statistici: se reîncarcă la click-uri noi în pliant (alt tab) și la revenirea în fereastră ---------- */
   useEffect(() => {
     const onStorage = (e: StorageEvent) => { if (e.key === DF.STATS_KEY) setStats(DF.getStats()); };
@@ -271,6 +305,12 @@ export default function AdminPanel() {
               );
             }) : null}
           </div>
+          <div className="btns" style={{ marginTop: '1rem' }}>
+            <button className="btn a-add" id="publish-og" type="button" onClick={publishOgShare}>
+              Publică imaginea pentru share
+            </button>
+          </div>
+          <p className="help">Generează aceeași imagine ca postarea pătrată (1080×1080, cu produsele din ofertă), o urcă pe Vercel Blob și o folosește Facebook / WhatsApp la previzualizarea linkului. După publicare: Facebook Sharing Debugger → Scrape Again.</p>
         </section>
 
         <section className="a-card">

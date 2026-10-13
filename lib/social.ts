@@ -5,12 +5,19 @@ import * as DF from './store';
 import type { OfferData, Product, ResolvedOffer } from './types';
 
 export type FormatKey = 'square' | 'portrait' | 'story';
-export const FORMATS: Record<FormatKey, { w: number; h: number; label: string; size: string }> = {
+/** Include formatul Open Graph (1200×630) pentru share pe Facebook / WhatsApp. */
+export type RenderFormatKey = FormatKey | 'og';
+export const FORMATS: Record<RenderFormatKey, { w: number; h: number; label: string; size: string }> = {
   square: { w: 1080, h: 1080, label: 'Postare Facebook — pătrat', size: '1080×1080' },
   portrait: { w: 1080, h: 1350, label: 'Postare Facebook / Instagram — portret', size: '1080×1350' },
   story: { w: 1080, h: 1920, label: 'Story Facebook / Instagram / WhatsApp', size: '1080×1920' },
+  // același layout ca square (produse + vedetă) — arată mai bine la share decât 1200×630 peisaj
+  og: { w: 1080, h: 1080, label: 'Previzualizare share (Open Graph)', size: '1080×1080' },
 };
-export const FORMAT_KEYS = Object.keys(FORMATS) as FormatKey[];
+export const FORMAT_KEYS: FormatKey[] = ['square', 'portrait', 'story'];
+export const OG_FORMAT: RenderFormatKey = 'og';
+export const OG_WIDTH = FORMATS.og.w;
+export const OG_HEIGHT = FORMATS.og.h;
 
 type Ctx = CanvasRenderingContext2D;
 type Rect = { x: number; y: number; w: number; h: number };
@@ -328,7 +335,7 @@ function gridRects(area: Rect, n: number, cols: number, gap: number): Rect[] {
 }
 
 /* ---------- randare completă ---------- */
-export async function render(data: OfferData, fmtKey: FormatKey): Promise<HTMLCanvasElement> {
+export async function render(data: OfferData, fmtKey: RenderFormatKey): Promise<HTMLCanvasElement> {
   await ensureFonts();
   const fmt = FORMATS[fmtKey];
   const W = fmt.w, H = fmt.h;
@@ -350,7 +357,7 @@ export async function render(data: OfferData, fmtKey: FormatKey): Promise<HTMLCa
     return canvas;
   }
 
-  if (fmtKey === 'square' && others.length >= 1 && others.length <= 4) {
+  if ((fmtKey === 'square' || fmtKey === 'og') && others.length >= 1 && others.length <= 4) {
     // exact compoziția pliantului lor: vedeta la mijloc, câte două produse pe laterale
     const colW = 318, cw = W - 2 * M - 2 * colW - 2 * 14;
     const lx = M, mx = M + colW + 14, rx = mx + cw + 14;
@@ -367,7 +374,7 @@ export async function render(data: OfferData, fmtKey: FormatKey): Promise<HTMLCa
   }
 
   // portret / story / alte cazuri: antet sus, vedeta pe un rând, restul în grilă
-  const story = fmtKey === 'story', square = fmtKey === 'square';
+  const story = fmtKey === 'story', square = fmtKey === 'square' || fmtKey === 'og';
   const topSafe = story ? 150 : 22;
   const footH = story ? 0 : (fmtKey === 'portrait' ? 62 : 46);
   const storyFootH = story ? 230 : 0;

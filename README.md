@@ -96,6 +96,51 @@ La fiecare `git push` pe `main`, Vercel publică automat noua versiune.
 
 > Pe adresa publică, linkurile de WhatsApp și codul QR folosesc automat adresa site-ului (ex. `https://daniofan-next.vercel.app/`). Local (`localhost`) folosesc adresa planificată `https://oferte.daniofan.ro`, care se schimbă din panou, secțiunea 4. La fel ca în prototipul static.
 
+## Previzualizare share (Open Graph) pe Facebook / WhatsApp
+
+Când cineva dă share la linkul site-ului, Facebook și WhatsApp citesc tag-urile Open Graph din HTML — **nu** pot vedea canvas-ul din browser sau `localStorage`. Imaginea de „momeală” trebuie urcată pe server (Vercel Blob).
+
+### Variabile de mediu
+
+Copiați `.env.example` → `.env.local` (local) și setați aceleași valori în Vercel → Project → Settings → Environment Variables:
+
+| Variabilă | Rol |
+|---|---|
+| `NEXT_PUBLIC_SITE_URL` | URL public fără slash final (ex. `https://daniofan-next.vercel.app`) — `metadataBase` + linkuri OG |
+| `ADMIN_SECRET` | Secret pentru `POST /api/og-image` (header `Authorization: Bearer …`) |
+| `NEXT_PUBLIC_ADMIN_SECRET` | **Aceeași valoare** ca `ADMIN_SECRET` — o trimite butonul din `/admin` |
+| `BLOB_READ_WRITE_TOKEN` | Token Vercel Blob (read/write) |
+
+### Conectare Vercel Blob
+
+1. Pe [vercel.com](https://vercel.com) → proiectul → **Storage** → **Create** → **Blob**.
+2. Conectați store-ul la proiect; Vercel poate scrie automat `BLOB_READ_WRITE_TOKEN` în env.
+3. Redeploy după ce apar variabilele.
+4. În `/admin` → secțiunea 3 → **Publică imaginea pentru share** (generează 1080×1080 cu produsele din ofertă, urcă `og/current.png` + `og/meta.json`).
+
+Dacă nu e publicată nicio imagine, se folosește `/og-default.png`.
+
+### Reîmprospătare previzualizare Facebook
+
+Facebook cache-uiește agresiv imaginea OG:
+
+1. Deschideți [Sharing Debugger](https://developers.facebook.com/tools/debug/).
+2. Puneți URL-ul site-ului (`NEXT_PUBLIC_SITE_URL`).
+3. Apăsați **Scrape Again** (de 1–2 ori dacă tot apare poza veche).
+
+URL-ul imaginii are `?v=<timestamp>` ca să forțeze o adresă nouă la fiecare publicare.
+
+> Cu `cacheComponents` (Next 16), pagina nu exportă `revalidate = 0`; în schimb `generateMetadata` apelează `connection()` ca metadata OG să se rezolve la fiecare request.
+
+### Verificare locală a tag-urilor OG
+
+```bash
+# cu npm run dev sau npm start
+curl -sS http://localhost:3000/ | grep -E 'og:|twitter:'
+```
+
+Ar trebui să vedeți `og:image`, `og:title`, `twitter:card` etc. Fără Blob token, `og:image` pointează la `/og-default.png`.
+
 ## Scenariu de demo (2 minute)
 
 1. Pe telefonul lui: pliantul (`/`). „Așa vede clientul: aceleași culori, dar cu preț mare, reducere calculată, buton de sunat și de WhatsApp.”
@@ -108,7 +153,7 @@ La fiecare `git push` pe `main`, Vercel publică automat noua versiune.
 
 ```
 app/
-  (client)/layout.tsx, page.tsx       pliantul clientului (/), fostul index.html
+  (client)/layout.tsx, page.tsx       pliantul (/); page.tsx = generateMetadata OG
   (admin)/admin/layout.tsx, page.tsx  panoul angajaților (/admin), fostul admin.html (<body class="admin">)
 components/
   flyer/Flyer.tsx, ProductCard.tsx    pliantul: countdown, carduri, WhatsApp, bara de jos, sincronizare între taburi
@@ -117,12 +162,15 @@ components/
   icons.tsx                           iconițele SVG
 lib/
   store.ts                            date, calcule (reduceri, statusuri, date automate, countdown), localStorage, statistici
-  social.ts                           generatorul de imagini Facebook pe <canvas>
+  social.ts                           generatorul de imagini Facebook pe <canvas> (+ format og 1200×630)
+  og-meta.ts                          citește og/meta.json din Vercel Blob
   image.ts                            micșorarea pozelor + decupare fundal (browser u2netp)
   remove-bg-browser.ts                U-2-Net u2netp + onnxruntime-web (client)
   qr.ts                               codul QR (qrcode-generator, MIT)
   types.ts                            tipurile datelor (OfferData, Product, ...)
+app/api/og-image/route.ts             POST: publică PNG OG pe Vercel Blob
 app/api/remove-bg/route.ts            opțional: U-2-Net full pe Node/VPS
+public/og-default.png                 fallback Open Graph dacă nu e nimic publicat
 public/models/u2netp.onnx             model browser (~5 MB; npm run download-u2netp)
 models/u2net/                         opțional: u2net.onnx full (npm run download-u2net)
 scripts/download-u2netp.mjs           descarcă u2netp pentru Vercel/browser
