@@ -1,7 +1,7 @@
 'use client';
 /* Panou angajați (demo): editează oferta, salvează în localStorage, generează imaginile și codul QR.
    Port din js/admin.js + admin.html al prototipului static. */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import * as DF from '@/lib/store';
 import * as Social from '@/lib/social';
@@ -9,22 +9,27 @@ import type { FormatKey } from '@/lib/social';
 import { drawQR } from '@/lib/qr';
 import { download, num, processImage } from '@/lib/image';
 import type { LocalStats, OfferData, Product } from '@/lib/types';
+import MagazineBuilder from '@/components/builder/MagazineBuilder';
+import ProductCard from './ProductCard';
 import ProductRow, { type FieldKey, type RowAction } from './ProductRow';
 import Stats from './Stats';
-import { loadDefaultOffer } from '@/data/offer';
-import { THEMES, THEME_KEYS, type ThemeKey } from '@/lib/themes';
-
 /** Datele salvate + momentul salvării (status, QR și imaginile se refac după salvare, ca în original). */
 type Snapshot = { data: OfferData; at: Date };
+
+function stripQ(s: string): string {
+  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
 
 export default function AdminPanel() {
   const [data, setData] = useState<OfferData | null>(null);
   const [committed, setCommitted] = useState<Snapshot | null>(null);
   const [productsKey, setProductsKey] = useState(0); // = renderProducts()
-  const [offerKey, setOfferKey] = useState(0); // = renderOffer()
   const [stats, setStats] = useState<LocalStats | null>(null);
   const [saved, setSaved] = useState({ msg: '', err: false, show: false });
   const [socialUrls, setSocialUrls] = useState<Partial<Record<FormatKey, string>>>({});
+  const [tab, setTab] = useState<'constructor' | 'produse'>('produse');
+  const [productQuery, setProductQuery] = useState('');
+  const [editIndex, setEditIndex] = useState<number | null>(null);
 
   const dataRef = useRef<OfferData | null>(null);
   const socialUrlsRef = useRef<Partial<Record<FormatKey, string>>>({});
@@ -32,8 +37,6 @@ export default function AdminPanel() {
   const saveT = useRef<number | undefined>(undefined);
   const flashT = useRef<number | undefined>(undefined);
   const cutBgRef = useRef<HTMLInputElement>(null);
-  const startRef = useRef<HTMLInputElement>(null);
-  const endRef = useRef<HTMLInputElement>(null);
   const qrRef = useRef<HTMLCanvasElement>(null);
   const pubUrlRef = useRef<HTMLInputElement>(null);
   const posterQrRef = useRef<HTMLImageElement>(null);
@@ -57,11 +60,10 @@ export default function AdminPanel() {
   }, [flash]);
 
   /** Aplică o modificare: o arată imediat și o salvează (cu întârzierea originalului). */
-  const commit = useCallback((next: OfferData, opts: { products?: boolean; offer?: boolean } = {}) => {
+  const commit = useCallback((next: OfferData, opts: { products?: boolean } = {}) => {
     dataRef.current = next;
     setData(next);
     if (opts.products) setProductsKey((k) => k + 1);
-    if (opts.offer) setOfferKey((k) => k + 1);
     persist(next);
   }, [persist]);
 
@@ -69,7 +71,6 @@ export default function AdminPanel() {
     dataRef.current = d;
     setData(d);
     setProductsKey((k) => k + 1);
-    setOfferKey((k) => k + 1);
     socialDelay.current = 0;
     setCommitted({ data: d, at: new Date() });
     setStats(DF.getStats());
@@ -80,6 +81,29 @@ export default function AdminPanel() {
     DF.load().then((d) => { if (alive) renderAll(d); });
     return () => { alive = false; };
   }, [renderAll]);
+
+  /* Constructor: fără scroll pe pagină — doar zoom pe foaie / scroll în panoul de produse */
+  useEffect(() => {
+    if (tab !== 'constructor') return;
+    document.documentElement.classList.add('admin-builder-lock');
+    document.body.classList.add('admin-builder-lock');
+    const syncChrome = () => {
+      const top = document.querySelector('.a-top');
+      const tabs = document.querySelector('.a-tabs');
+      const h = Math.ceil(
+        (top?.getBoundingClientRect().height || 0) + (tabs?.getBoundingClientRect().height || 0),
+      );
+      document.documentElement.style.setProperty('--admin-chrome', `${h || 128}px`);
+    };
+    syncChrome();
+    window.addEventListener('resize', syncChrome);
+    return () => {
+      window.removeEventListener('resize', syncChrome);
+      document.documentElement.classList.remove('admin-builder-lock');
+      document.body.classList.remove('admin-builder-lock');
+      document.documentElement.style.removeProperty('--admin-chrome');
+    };
+  }, [tab]);
 
   /* ---------- 4. QR (+ afișul A5) ---------- */
   const renderQR = useCallback((d: OfferData) => {
@@ -172,46 +196,19 @@ export default function AdminPanel() {
     return () => { window.removeEventListener('storage', onStorage); window.removeEventListener('focus', onFocus); };
   }, []);
 
-  /* ---------- 1. oferta ---------- */
+  /* ---------- 1. produse ---------- */
   const cur = () => dataRef.current as OfferData;
-  const onTitle = (e: React.ChangeEvent<HTMLInputElement>) => { const d = cur(); commit({ ...d, offer: { ...d.offer, title: e.target.value } }); };
-  const onDates = () => {
-    const d = cur();
-    const start = startRef.current?.value || '';
-    let end = endRef.current?.value || '';
-    if (end && start && end < start) { end = start; if (endRef.current) endRef.current.value = start; }
-    commit({ ...d, offer: { ...d.offer, start, end, autoDates: false } }, { products: true });
-  };
-  const onAuto = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const d = cur();
-    const offer = { ...d.offer, autoDates: e.target.checked };
-    if (!e.target.checked) { offer.start = startRef.current?.value || ''; offer.end = endRef.current?.value || ''; }
-    commit({ ...d, offer }, { offer: true, products: true });
-  };
 
-  /** Încarcă o ofertă demo potrivită temei (aceleași produse demo, alte titluri / date / vedete) */
-  const loadDemo = async (theme: ThemeKey) => {
-    const def = await loadDefaultOffer();
-    const d = cur();
-    const pick = (hero: string, price: Record<string, number>) => def.products.map((p) => ({ ...p, hero: p.id === hero, newPrice: price[p.id] ?? p.newPrice }));
-    const demos: Record<ThemeKey, OfferData['offer'] & { products: Product[] }> = {
-      standard: { ...def.offer, theme: 'standard', products: def.products },
-      paste: { title: 'Oferte de PAȘTE', start: '2027-04-26', end: '2027-05-02', autoDates: false, theme: 'paste',
-        products: pick('timisoreana-25-pet', { 'timisoreana-25-pet': 7.99, 'ciucas-05-pet': 2.29 }) },
-      craciun: { title: 'Oferte de CRĂCIUN', start: '2026-12-14', end: '2026-12-24', autoDates: false, theme: 'craciun',
-        products: pick('heineken-033-sticla', { 'heineken-033-sticla': 3.79, 'ursus-033-sticla': 2.99 }) },
-    };
-    const { products, ...offer } = demos[theme];
-    commit({ ...d, offer, products }, { offer: true, products: true });
-    flash('✓ Demo ' + THEMES[theme].label + ' încărcat. Pliantul clienților s-a actualizat.');
-  };
-  const onTheme = (theme: ThemeKey) => { const d = cur(); commit({ ...d, offer: { ...d.offer, theme } }); };
-
-  /* ---------- 2. produse ---------- */
   const setProducts = (products: Product[], opts?: { products?: boolean }) => commit({ ...cur(), products }, opts);
   const onField = (i: number, k: FieldKey, value: string) => {
     const products = cur().products.slice();
-    products[i] = { ...products[i], [k]: (k === 'oldPrice' || k === 'newPrice') ? num(value) : value };
+    const next = { ...products[i] };
+    if (k === 'oldPrice' || k === 'newPrice') next[k] = num(value);
+    else if (k === 'unitQty') {
+      if (value.trim() === '') delete next.unitQty;
+      else next.unitQty = num(value);
+    } else next[k] = value;
+    products[i] = next;
     setProducts(products);
   };
   const onCheck = (i: number, k: 'hero' | 'sgr', checked: boolean) => {
@@ -236,19 +233,40 @@ export default function AdminPanel() {
     if (act === 'del') {
       if (!confirm(`Ștergeți „${P[i].name || 'produsul'} ${P[i].size || ''}" din ofertă?`)) return;
       P.splice(i, 1);
-    } else if (act === 'up' && i > 0) [P[i - 1], P[i]] = [P[i], P[i - 1]];
-    else if (act === 'down' && i < P.length - 1) [P[i + 1], P[i]] = [P[i], P[i + 1]];
+      setEditIndex(null);
+    } else if (act === 'up' && i > 0) {
+      [P[i - 1], P[i]] = [P[i], P[i - 1]];
+      setEditIndex(i - 1);
+    } else if (act === 'down' && i < P.length - 1) {
+      [P[i + 1], P[i]] = [P[i], P[i + 1]];
+      setEditIndex(i + 1);
+    }
     setProducts(P, { products: true });
   };
   const addProduct = (atTop: boolean) => {
     const P = cur().products;
-    const p: Product = { id: 'p' + Date.now().toString(36), name: '', size: '', oldPrice: 0, newPrice: 0, category: P[0] ? P[0].category : 'Bere', hero: false, sgr: true, image: '', validUntil: '' };
+    const id = 'p' + crypto.randomUUID().slice(0, 8);
+    const p: Product = { id, name: '', size: '', oldPrice: 0, newPrice: 0, category: P[0] ? P[0].category : 'Bere', hero: false, sgr: true, image: '', validUntil: '' };
     flushSync(() => setProducts(atTop ? [p, ...P] : [...P, p], { products: true }));
-    const row = document.querySelector<HTMLElement>(`.prod[data-i="${atTop ? 0 : P.length}"]`);
-    if (!row) return;
-    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    setTimeout(() => row.querySelector<HTMLInputElement>('[data-k=name]')?.focus(), 300);
+    setProductQuery('');
+    setEditIndex(atTop ? 0 : P.length);
   };
+
+  useEffect(() => {
+    if (editIndex == null) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setEditIndex(null); };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const t = window.setTimeout(() => {
+      document.querySelector<HTMLInputElement>('.prod-modal [data-k=name]')?.focus();
+    }, 40);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [editIndex]);
 
   /* ---------- 4. QR: acțiuni ---------- */
   const onPubUrl = (e: React.ChangeEvent<HTMLInputElement>) => { const d = cur(); commit({ ...d, store: { ...d.store, publicUrl: e.target.value.trim() } }); };
@@ -282,6 +300,18 @@ export default function AdminPanel() {
 
   const resolved = data ? DF.resolveOffer(data) : null;
   const n = data ? data.products.length : 0;
+  const filtered = useMemo(() => {
+    if (!data) return [] as { p: Product; i: number }[];
+    const q = stripQ(productQuery.trim());
+    return data.products
+      .map((p, i) => ({ p, i }))
+      .filter(({ p }) => {
+        if (!q) return true;
+        const hay = stripQ([p.name, p.brand || '', p.size, p.category, p.variants || '', p.specialLabel || ''].join(' '));
+        return hay.includes(q);
+      });
+  }, [data, productQuery]);
+  const editProduct = editIndex != null && data ? data.products[editIndex] : null;
 
   return (
     <>
@@ -291,59 +321,68 @@ export default function AdminPanel() {
           <a className="btn a-open" href="/" target="_blank" rel="noopener">Vezi pliantul clientului →</a>
         </div>
       </header>
-      <div className="demo-banner"><b>MOD DEMO</b> — fără parolă, datele se salvează doar în acest browser. În versiunea finală: cont pentru fiecare angajat și salvare pe server.</div>
+      <div className="a-tabs" role="tablist" aria-label="Secțiuni panou">
+        <button
+          type="button"
+          role="tab"
+          id="tab-constructor"
+          className={'a-tab' + (tab === 'constructor' ? ' is-on' : '')}
+          aria-selected={tab === 'constructor'}
+          onClick={() => setTab('constructor')}
+        >
+          Constructor Revista
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-produse"
+          className={'a-tab' + (tab === 'produse' ? ' is-on' : '')}
+          aria-selected={tab === 'produse'}
+          onClick={() => setTab('produse')}
+        >
+          Produse
+        </button>
+      </div>
 
-      <main className="a-main">
+      {tab === 'constructor' ? (
+        <main className="a-main a-main--builder" aria-labelledby="tab-constructor">
+          <MagazineBuilder products={data?.products || []} offer={resolved} />
+        </main>
+      ) : (
+      <main className="a-main" aria-labelledby="tab-produse">
         <section className="a-card status-card" id="status">{status}</section>
 
         <section className="a-card">
-          <h2><span className="step">1</span>Oferta</h2>
-          <div className="fields three">
-            <label className="wide">Titlul ofertei<input key={'t' + offerKey} id="o-title" type="text" placeholder="Ofertă de WEEK-END" defaultValue={data ? data.offer.title || '' : ''} onChange={onTitle} /></label>
-            <label>Începe<input key={'s' + offerKey} ref={startRef} id="o-start" type="date" defaultValue={resolved ? DF.toISODate(resolved.start) : ''} onChange={onDates} /></label>
-            <label>Se termină<input key={'e' + offerKey} ref={endRef} id="o-end" type="date" defaultValue={resolved ? DF.toISODate(resolved.end) : ''} onChange={onDates} /></label>
-          </div>
-          <label className="chk"><input id="o-auto" type="checkbox" checked={!!data?.offer.autoDates} onChange={onAuto} /> Date automate pentru demo (weekendul curent: vineri–duminică)</label>
-          <div className="demo-pick">
-            <span className="tp-lbl">Demo șablon — încarcă o ofertă completă, gata de arătat</span>
-            <div className="tp-opts">
-              {THEME_KEYS.map((k) => (
-                <button key={k} type="button" className={'btn dp-btn dp-' + k} id={'demo-' + k} onClick={() => loadDemo(k)}>{'Demo ' + THEMES[k].label}</button>
-              ))}
-            </div>
-          </div>
-          <div className="theme-pick" role="radiogroup" aria-label="Tema pliantului">
-            <span className="tp-lbl">Tema pliantului și a imaginilor Facebook</span>
-            <div className="tp-opts">
-              {THEME_KEYS.map((k) => {
-                const on = (data?.offer.theme || 'standard') === k;
-                return (
-                  <button key={k} type="button" role="radio" aria-checked={on} className={'tp-opt tp-' + k + (on ? ' on' : '')} id={'theme-' + k} onClick={() => onTheme(k)}>
-                    <span className="tp-sw" aria-hidden="true"><i style={{ background: THEMES[k].pal.band }} /><i style={{ background: THEMES[k].pal.red }} /><i style={{ background: THEMES[k].pal.yellow }} /></span>
-                    {THEMES[k].label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <p className="help">După data de sfârșit, produsele dispar singure din pliant. Nu mai trebuie șters nimic manual.</p>
-        </section>
-
-        <section className="a-card">
-          <div className="h-row"><h2><span className="step">2</span>Produsele din ofertă</h2><button className="btn a-add" id="add-top" type="button" onClick={() => addProduct(true)}>+ Adaugă produs</button></div>
+          <div className="h-row"><h2><span className="step">1</span>Produsele din ofertă</h2><button className="btn a-add" id="add-top" type="button" onClick={() => addProduct(true)}>+ Adaugă produs</button></div>
           <label className="chk"><input ref={cutBgRef} id="cut-bg" type="checkbox" defaultChecked /> La poze noi: decupează automat fundalul</label>
           <p className="help">Fundalul se taie în browser cu U-2-Net / u2netp (Apache-2.0, comercial OK) — merge și pe Vercel. La primul upload se încarcă modelul (~5 MB).</p>
-          <div id="products">
+          <label className="p-search">
+            <span className="sr-only">Caută produse</span>
+            <input
+              type="search"
+              id="prod-search"
+              placeholder="Caută după nume, brand, gramaj, categorie…"
+              value={productQuery}
+              onChange={(e) => setProductQuery(e.target.value)}
+              autoComplete="off"
+            />
+          </label>
+          <div id="products" className="prod-grid">
             {data && resolved ? (n
-              ? data.products.map((p, i) => <ProductRow key={productsKey + ':' + i} p={p} i={i} n={n} offer={resolved} onField={onField} onCheck={onCheck} onImage={onImage} onAction={onAction} />)
-              : <p className="help">Niciun produs încă. Apăsați „Adaugă produs&quot;.</p>) : null}
+              ? (filtered.length
+                ? filtered.map(({ p, i }) => (
+                  <ProductCard key={p.id} p={p} offer={resolved} onEdit={() => setEditIndex(i)} />
+                ))
+                : <p className="help prod-grid__empty">Niciun produs nu potrivește căutarea.</p>)
+              : <p className="help prod-grid__empty">Niciun produs încă. Apăsați „Adaugă produs&quot;.</p>) : null}
           </div>
           <button className="btn a-add big" id="add-bottom" type="button" onClick={() => addProduct(false)}>+ Adaugă încă un produs</button>
           <datalist id="cats"><option>Bere</option><option>Băuturi</option><option>Lactate</option><option>Carne</option><option>Fructe și legume</option><option>Dulciuri</option><option>Curățenie</option></datalist>
+          <datalist id="units"><option>l</option><option>kg</option><option>buc</option></datalist>
         </section>
 
         <section className="a-card">
-          <div className="h-row"><h2><span className="step">3</span>Imagini pentru Facebook, gata făcute</h2><button className="btn a-dl-all" id="dl-all" type="button" onClick={downloadAll}>Descarcă toate (3 PNG)</button></div>
+          <div className="h-row"><h2><span className="step">2</span>Imagini pentru Facebook, gata făcute</h2><button className="btn a-dl-all" id="dl-all" type="button" onClick={downloadAll}>Descarcă toate (3 PNG)</button></div>
           <p className="help">Se refac singure la fiecare modificare. Nu mai trebuie poze făcute cu AI: scrieți produsele, iar sistemul face imaginea în stilul Daniofan.</p>
           <div className="social" id="social">
             {committed ? Social.FORMAT_KEYS.map((k) => {
@@ -365,7 +404,7 @@ export default function AdminPanel() {
         </section>
 
         <section className="a-card">
-          <h2><span className="step">4</span>Cod QR pentru casa de marcat</h2>
+          <h2><span className="step">3</span>Cod QR pentru casa de marcat</h2>
           <div className="qr-row">
             <canvas ref={qrRef} id="qr" width={360} height={360} aria-label="Cod QR spre pliant"></canvas>
             <div className="qr-side">
@@ -377,7 +416,7 @@ export default function AdminPanel() {
         </section>
 
         <section className="a-card">
-          <div className="h-row"><h2><span className="step">5</span>Statistici</h2><span className="demo-tag">DATE DEMO</span></div>
+          <div className="h-row"><h2><span className="step">4</span>Statistici</h2><span className="demo-tag">DATE DEMO</span></div>
           <p className="help">Cifre simulate pentru prezentare, la care se adună click-urile reale făcute pe pliant în acest browser (vizualizări de produs, trimiteri pe WhatsApp, apăsări pe „Sună&quot; și „Cum ajung&quot;).</p>
           <div id="stats">{stats && data ? <Stats s={stats} products={data.products} /> : null}</div>
         </section>
@@ -388,6 +427,40 @@ export default function AdminPanel() {
         </section>
         <p className="a-foot">Prototip EDGE pentru Daniofan Market · fără server, totul rulează în browser</p>
       </main>
+      )}
+
+      {editIndex != null && editProduct && resolved ? (
+        <div
+          className="prod-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="prod-modal-title"
+          onClick={(e) => { if (e.target === e.currentTarget) setEditIndex(null); }}
+        >
+          <div className="prod-modal__panel">
+            <div className="prod-modal__head">
+              <h2 id="prod-modal-title">Editează produs</h2>
+              <button type="button" className="prod-modal__x" aria-label="Închide" onClick={() => setEditIndex(null)}>×</button>
+            </div>
+            <div className="prod-modal__body">
+              <ProductRow
+                key={productsKey + ':' + editProduct.id}
+                p={editProduct}
+                i={editIndex}
+                n={n}
+                offer={resolved}
+                onField={onField}
+                onCheck={onCheck}
+                onImage={onImage}
+                onAction={onAction}
+              />
+            </div>
+            <div className="prod-modal__foot">
+              <button type="button" className="btn a-add" onClick={() => setEditIndex(null)}>Gata</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className={'saved' + (saved.show ? ' show' : '') + (saved.err ? ' err' : '')} id="saved" role="status">{saved.msg}</div>
 

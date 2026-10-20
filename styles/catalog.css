@@ -1,0 +1,123 @@
+/* Randare comună revistă pe grilă (client + builder). Raport A4, cqw. */
+
+.cat-page{container-type:inline-size;container-name:catpage;width:100%}
+.cat-page__sheet{width:100%;aspect-ratio:1 / 1.414;position:relative;background:#fff;border:2px solid #222;
+  overflow:hidden;box-shadow:0 10px 28px rgba(0,0,0,.12)}
+.cat-page--mini .cat-page__sheet{border-width:1px;box-shadow:none}
+.cat-page--left .cat-page__sheet{border-right:0;border-radius:4px 0 0 4px;box-shadow:none}
+.cat-page--right .cat-page__sheet{border-left:1px solid #bbb;border-radius:0 4px 4px 0}
+.cat-page--single .cat-page__sheet{border-radius:4px}
+
+.cat-page__inner{position:absolute;inset:0;padding:1.6cqw 1.8cqw 5.5cqw;display:flex;flex-direction:column;
+  font-family:var(--body);color:var(--ink);overflow:hidden;
+  background-image:radial-gradient(ellipse at 50% 40%,#fff 0%,#fff 40%,#FFF8D6 100%)}
+.cat-page__meta{position:absolute;left:1.8cqw;right:1.8cqw;bottom:1.4cqw;display:flex;align-items:center;
+  justify-content:space-between;gap:1cqw;pointer-events:none;z-index:2}
+.cat-page__sgr{font-weight:600;font-size:1.7cqw;color:#555}
+.cat-page__folio{font-family:var(--cond);font-weight:800;font-size:2.2cqw;color:#666}
+
+.cat-grid{flex:1;min-height:0;display:grid;gap:0;width:100%;height:100%;position:relative}
+.cat-grid--guides{background-image:
+  repeating-linear-gradient(to right,transparent 0,transparent calc(100% / var(--cat-cols) - 1px),rgba(0,0,0,.06) calc(100% / var(--cat-cols) - 1px),rgba(0,0,0,.06) calc(100% / var(--cat-cols))),
+  repeating-linear-gradient(to bottom,transparent 0,transparent calc(100% / var(--cat-rows) - 1px),rgba(0,0,0,.06) calc(100% / var(--cat-rows) - 1px),rgba(0,0,0,.06) calc(100% / var(--cat-rows)))}
+
+/* slot = unitatea de măsură pentru tipografie (cqmin/cqw/cqh) */
+.cat-slot{position:relative;min-width:0;min-height:0;z-index:1;container-type:size;container-name:catslot}
+.cat-slot.is-selected{z-index:3;outline:2px solid var(--blue);outline-offset:-1px;border-radius:.4cqw}
+.cat-slot.is-ghost{opacity:.45;pointer-events:none}
+.cat-slot--drop-ok{outline:2px solid #18A04A;background:rgba(24,160,74,.12)}
+.cat-slot--drop-bad{outline:2px solid var(--red);background:rgba(227,6,19,.1)}
+
+/* ---- ProductBlock: tipografie dinamică după chenar (pixelii slotului + span grilă) ---- */
+.cat-prod{
+  /* bază: ~% din latura mică a chenarului; --cat-scale amplifică după w×h */
+  --cat-scale: 1;
+  --cat-brand: clamp(10px, calc(14cqmin * var(--cat-scale)), 48px);
+  --cat-name: clamp(9px, calc(8.5cqmin * var(--cat-scale)), 28px);
+  --cat-detail: clamp(8px, calc(6.5cqmin * var(--cat-scale)), 20px);
+  --cat-badge: clamp(9px, calc(7cqmin * var(--cat-scale)), 22px);
+  --cat-was: clamp(9px, calc(7.5cqmin * var(--cat-scale)), 24px);
+  --cat-lei: clamp(18px, calc(34cqmin * var(--cat-scale)), 110px);
+  --cat-ban: clamp(10px, calc(16cqmin * var(--cat-scale)), 52px);
+  position:relative;width:100%;height:100%;display:flex;flex-direction:column;justify-content:flex-start;
+  overflow:hidden;padding:4% 5% 5%;box-sizing:border-box;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;background:transparent;border:0
+}
+/* fallback pe arie, apoi override pe preset (câștigă coloane×rânduri) */
+.cat-prod[data-area="2"]{--cat-scale:.72}
+.cat-prod[data-area="3"]{--cat-scale:.84}
+.cat-prod[data-area="4"]{--cat-scale:1}
+.cat-prod[data-area="6"]{--cat-scale:1.18}
+.cat-prod[data-area="8"]{--cat-scale:1.28}
+.cat-prod[data-area="12"]{--cat-scale:1.55}
+.cat-prod[data-cols="1"][data-rows="2"]{--cat-scale:.72}   /* mic */
+.cat-prod[data-cols="1"][data-rows="3"]{--cat-scale:.84}   /* înalt */
+.cat-prod[data-cols="2"][data-rows="2"]{--cat-scale:1}     /* lat */
+.cat-prod[data-cols="2"][data-rows="3"]{--cat-scale:1.18}  /* mare */
+.cat-prod[data-cols="4"][data-rows="2"]{--cat-scale:1.28}  /* panoramic */
+.cat-prod[data-cols="4"][data-rows="3"]{--cat-scale:1.55}  /* vedetă */
+
+.cat-prod.is-highlight{animation:catPulse 2s ease}
+@keyframes catPulse{
+  0%,100%{box-shadow:0 0 0 0 transparent}
+  30%,70%{box-shadow:0 0 0 .5cqw var(--yellow)}
+  50%{box-shadow:0 0 0 .7cqw var(--red)}
+}
+.cat-prod__media{flex:1 1 auto;min-height:0;position:relative;width:100%}
+.cat-prod__foot{flex:0 0 auto;display:flex;flex-wrap:nowrap;justify-content:space-between;align-items:flex-end;
+  gap:4% 6%;padding-top:2%;width:100%;min-width:0}
+.cat-prod__text{min-width:0;flex:1 1 0;max-width:55%;text-align:left}
+.cat-prod__brand{margin:0;font-family:var(--cond);font-weight:900;line-height:1.05;text-transform:uppercase;
+  letter-spacing:.01em;font-size:var(--cat-brand);height:2.1em;max-height:2.1em;
+  overflow:hidden;white-space:normal}
+.cat-prod__name{margin:.12em 0 0;font-family:var(--body);font-weight:600;line-height:1.12;font-size:var(--cat-name);
+  height:2.24em;max-height:2.24em;overflow:hidden;white-space:normal}
+.cat-prod__detail{margin:.15em 0 0;font-weight:500;font-size:var(--cat-detail);color:#444;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-prod__detail--unit{color:#666;font-size:calc(var(--cat-detail) * .92)}
+.cat-prod__price{flex:0 1 auto;min-width:0;max-width:48%;text-align:right;padding:.1em 0}
+
+/* 1 coloană: titlu pe toată lățimea, preț dedesubt — altfel TIMIȘOREANA se taie */
+.cat-prod--narrow .cat-prod__foot{flex-direction:column;align-items:stretch;gap:2%}
+.cat-prod--narrow .cat-prod__text{max-width:100%;flex:0 0 auto;width:100%}
+.cat-prod--narrow .cat-prod__price{max-width:100%;width:100%;align-self:flex-end;text-align:right}
+.cat-prod--narrow .cat-prod__brand{height:2.2em;max-height:2.2em}
+.cat-prod__badge-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:.35em;margin-bottom:.25em}
+.cat-prod__badge{display:inline-block;background:var(--red);color:#fff;font-family:var(--cond);font-weight:900;
+  font-size:var(--cat-badge);line-height:1;padding:.25em .4em;border-radius:.25em}
+.cat-prod__badge--special{background:var(--blue);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-prod__badge--sponsored{background:#111;font-size:calc(var(--cat-badge) * .85)}
+.cat-prod__was{font-family:var(--cond);font-weight:700;font-size:var(--cat-was);color:#666;text-decoration:line-through}
+.cat-prod__now{display:inline-flex;align-items:flex-start;justify-content:flex-end;color:var(--red);line-height:.86;
+  font-family:var(--cond);font-weight:900;letter-spacing:-.02em;max-width:100%}
+.cat-prod__lei{font-size:var(--cat-lei)}
+.cat-prod__ban{font-size:var(--cat-ban);margin-top:.1em}
+
+/* ---- MediaArea ---- */
+.cat-media{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden}
+.cat-media.is-overflow{overflow:visible}
+.cat-media__img{position:absolute;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.14));transform-origin:center center;user-select:none;pointer-events:none}
+.cat-media--single .cat-media__img{left:50%;top:50%}
+.cat-media--side{display:flex;align-items:center;justify-content:center;gap:2%}
+.cat-media--side .cat-media__img{position:relative;left:auto;top:auto;max-width:48%;max-height:95%}
+.cat-media--stack .cat-media__img{max-width:78%;max-height:70%}
+.cat-media--fan .cat-media__img{max-width:70%;max-height:85%}
+.cat-media--hero-small .cat-media__img{max-width:55%;max-height:90%;left:18%;top:50%}
+.cat-media__empty{font-family:var(--cond);font-weight:800;font-size:14cqh;color:#999}
+
+/* ---- alte blocuri ---- */
+.cat-heading{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:4% 6%;box-sizing:border-box;
+  font-family:var(--cond);font-weight:900;font-size:22cqh;text-transform:uppercase;text-align:center;
+  background:var(--band,var(--red));color:var(--band-text,var(--yellow));border-radius:.6cqw}
+.cat-banner{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:4% 6%;box-sizing:border-box;
+  font-family:var(--cond);font-weight:900;font-size:18cqh;text-align:center;background:var(--yellow);color:#111;
+  border-radius:.5cqw;border:2px solid #111}
+.cat-image{width:100%;height:100%;position:relative;overflow:hidden;border-radius:.4cqw;background:#f0f0f0}
+.cat-image img{width:100%;height:100%;object-fit:cover}
+.cat-text{width:100%;height:100%;padding:6% 8%;box-sizing:border-box;font-size:12cqh;line-height:1.25;overflow:hidden;
+  font-weight:600}
+
+.cat-page--mini .cat-prod__brand,.cat-page--mini .cat-prod__name,.cat-page--mini .cat-prod__detail{font-size:1px}
+.cat-page--mini .cat-prod__lei{font-size:8px}
+.cat-page--mini .cat-prod__ban{font-size:5px}

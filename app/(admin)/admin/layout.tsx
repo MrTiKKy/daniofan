@@ -1,7 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import '@/styles/fonts.css';
 import '@/styles/flyer.css';
+import '@/styles/themes.css';
 import '@/styles/admin.css';
+import '@/styles/catalog.css';
+import '@/styles/builder.css';
+import '@/styles/magazine.css';
 
 export const metadata: Metadata = {
   title: 'Panou angajați (demo) — Daniofan Market',

@@ -39,6 +39,16 @@ export interface Product {
   image: string;
   /** "YYYY-MM-DD" sau "" */
   validUntil: string;
+  /** brand afișat majuscule (opțional; altfel se deduce din nume) */
+  brand?: string;
+  /** cantitate numerică pentru preț/unitate (ex. 0.5 pentru 0.5 L) */
+  unitQty?: number;
+  /** unitate: kg | l | buc … */
+  unitKind?: string;
+  /** în loc de %: „2+1”, „Ofertă specială” */
+  specialLabel?: string;
+  /** ex. „diverse sortimente” */
+  variants?: string;
 }
 
 export interface OfferData {

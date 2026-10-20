@@ -51,6 +51,41 @@ export function discountPct(oldP: number | string, newP: number | string): numbe
 }
 /** Același format ca pe pliantul lor (punct zecimal: 2.99) */
 export const fmtPrice = (n: number | string): string => (Math.round((+n || 0) * 100) / 100).toFixed(2);
+/** Format RO cu virgulă: 7,99 */
+export const fmtPriceRo = (n: number | string): string => fmtPrice(n).replace('.', ',');
+
+/** Brand + denumire pentru căsuța Lidl-style. */
+export function productBrandTitle(p: Product): { brand: string; title: string } {
+  const brand = (p.brand || '').trim();
+  const name = (p.name || '').trim();
+  if (brand) return { brand, title: name };
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { brand: name, title: '' };
+  return { brand: parts[0], title: parts.slice(1).join(' ') };
+}
+
+/**
+ * Preț pe unitate: „1 kg = 23,47 lei” / „1 l = 4,70 lei”.
+ * Folosește unitQty+unitKind sau deduce din size (ex. 0.5L, 500g).
+ */
+export function unitPriceLine(p: Product): string | null {
+  if (!(+p.newPrice > 0)) return null;
+  let qty = p.unitQty != null ? +p.unitQty : NaN;
+  let kind = (p.unitKind || '').trim().toLowerCase();
+  if (!(qty > 0) || !kind) {
+    const m = /(\d+[.,]?\d*)\s*(kg|g|l|ml)\b/i.exec(p.size || '');
+    if (!m) return null;
+    qty = parseFloat(m[1].replace(',', '.'));
+    const u = m[2].toLowerCase();
+    if (u === 'g') { qty /= 1000; kind = 'kg'; }
+    else if (u === 'ml') { qty /= 1000; kind = 'l'; }
+    else kind = u;
+  }
+  if (!(qty > 0) || !kind) return null;
+  const per = +p.newPrice / qty;
+  if (!(per > 0) || !Number.isFinite(per)) return null;
+  return `1 ${kind} = ${fmtPriceRo(per)} lei`;
+}
 
 export function productStatus(p: Product, offer: ResolvedOffer | null, now?: Date): ProductStatus {
   now = now || new Date();

@@ -156,7 +156,8 @@ app/
   (client)/layout.tsx, page.tsx       pliantul (/); page.tsx = generateMetadata OG
   (admin)/admin/layout.tsx, page.tsx  panoul angajaților (/admin), fostul admin.html (<body class="admin">)
 components/
-  flyer/Flyer.tsx, ProductCard.tsx    pliantul: countdown, carduri, WhatsApp, bara de jos, sincronizare între taburi
+  flyer/Flyer.tsx                     pliantul: antet, WhatsApp, bara de jos + revista digitală
+  magazine/*                          revistă răsfoibilă (pagini A4, flip CSS 3D)
   admin/AdminPanel.tsx                panoul: oferta, produsele, imaginile Facebook, QR + afiș A5, statistici
   admin/ProductRow.tsx, Stats.tsx
   icons.tsx                           iconițele SVG
