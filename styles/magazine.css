@@ -109,10 +109,10 @@
 .mag-layout--hero4 .mag-layout__grid4{flex:1;min-height:0}
 .mag-layout--hero4 .mag-layout__grid4 .mag-cell:nth-child(n+3){border-top:1px solid rgba(0,0,0,.08)}
 
-/* căsuță: umple grila, bloc adunat (nu colțuri goale), padding față de margini */
+/* căsuță: umple chenarul; text/preț pot ajunge la margine */
 .mag-cell{position:relative;display:flex;flex-direction:column;justify-content:flex-start;min-height:0;height:100%;overflow:hidden;
   background:transparent;border:0;border-radius:0;box-shadow:none;
-  padding:1.4cqw 1.5cqw 1.8cqw;box-sizing:border-box;
+  padding:0;box-sizing:border-box;
   cursor:pointer;-webkit-tap-highlight-color:transparent}
 .mag-cell.is-overflow,.mag-cell.is-gesture{overflow:visible}
 .mag-cell.is-highlight{animation:magPulse 2s ease;outline:none;border-radius:.6cqw}
@@ -123,10 +123,10 @@
 }
 /* poză: umple zona, centrată în chenar, nu lipită de top */
 .mag-cell__img{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;
-  padding:1.4cqw .4cqw .3cqw;margin:0;width:100%;gap:.6cqw}
+  padding:1.2cqw .8cqw .4cqw;margin:0;width:100%;height:100%;gap:.6cqw;box-sizing:border-box}
 .mag-cell.is-overflow .mag-cell__img,.mag-cell.is-gesture .mag-cell__img{overflow:visible}
-.mag-cell--hero .mag-cell__img{padding-top:1.8cqw}
-.mag-cell--sm .mag-cell__img{padding-top:1cqw}
+.mag-cell--hero .mag-cell__img{padding-top:1.6cqw}
+.mag-cell--sm .mag-cell__img{padding-top:.8cqw}
 .mag-cell__img-slot{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;
   width:100%;height:100%;max-width:100%;max-height:100%;transform-origin:center center;will-change:transform;
   transition:opacity .12s ease,filter .12s ease,outline-color .12s ease}
@@ -139,19 +139,16 @@
   filter:drop-shadow(0 .35cqw .3cqw rgba(0,0,0,.14));pointer-events:none;user-select:none}
 .mag-cell__img--duo{gap:.8cqw}
 .mag-cell__img.is-gesture{touch-action:none}
-.mag-cell__img-handle{position:absolute;right:-5px;bottom:-5px;z-index:4;width:14px;height:14px;padding:0;
-  border:2px solid #111;border-radius:3px;background:var(--yellow);cursor:grab;
-  box-shadow:0 1px 3px rgba(0,0,0,.25);touch-action:none}
-.mag-cell__img-handle:hover{background:#fff;transform:scale(1.08)}
-.mag-cell__img-handle:active{cursor:grabbing}
 .mag-cell__noimg{font-family:var(--cond);font-weight:800;font-size:2.6cqw;color:#999}
 .mag-cell.is-gesture .mag-cell__text.is-gesture-target,
 .mag-cell.is-gesture .mag-cell__price.is-gesture-target{cursor:pointer;touch-action:none;
   outline:1.5px dashed rgba(17,17,17,.28);outline-offset:2px;border-radius:.3cqw;z-index:5;
   transition:opacity .12s ease,outline-color .12s ease,box-shadow .12s ease}
+.mag-cell.is-gesture .mag-cell__text,
+.mag-cell.is-gesture .mag-cell__price{max-width:100%}
 .mag-cell.is-gesture .mag-cell__text.is-active,
-.mag-cell.is-gesture .mag-cell__price.is-active{cursor:grab;outline:2px solid var(--blue);outline-offset:2px;
-  box-shadow:0 0 0 3px rgba(21,89,224,.2);z-index:6}
+.mag-cell.is-gesture .mag-cell__price.is-active{cursor:grab;outline:2px solid var(--blue);outline-offset:0;
+  box-shadow:0 0 0 2px rgba(21,89,224,.25);z-index:6}
 .mag-cell.is-gesture .mag-cell__text.is-active:active,
 .mag-cell.is-gesture .mag-cell__price.is-active:active{cursor:grabbing}
 .mag-cell.is-gesture .mag-cell__text.is-idle,
@@ -160,8 +157,9 @@
 .mag-cell--price-left .mag-cell__price{text-align:left}
 .mag-cell--price-left .mag-cell__badge-row,.mag-cell--price-left .mag-cell__now{justify-content:flex-start}
 /* text + preț: poziții absolute în chenar (ca pe oferta Lidl) */
-.mag-cell__text{position:absolute;z-index:2;min-width:0;max-width:56%;width:max-content;text-align:left;
-  padding:0;box-sizing:border-box;overflow:visible;pointer-events:none}
+.mag-cell__text{position:absolute;z-index:2;min-width:0;max-width:min(72%,100%);width:max-content;text-align:left;
+  padding:0;margin:0;box-sizing:border-box;overflow:visible;pointer-events:none;
+  zoom:var(--box-zoom,1)}
 .mag-cell.is-gesture .mag-cell__text{pointer-events:auto}
 .mag-cell__brand{margin:0;font-family:var(--cond);font-weight:900;font-size:3.8cqw;line-height:1.05;text-transform:uppercase;
   letter-spacing:.02em;color:var(--ink);overflow:visible;word-break:normal;overflow-wrap:break-word;hyphens:manual}
@@ -175,10 +173,12 @@
   white-space:normal;overflow:visible;word-break:normal;overflow-wrap:break-word}
 .mag-cell--sm .mag-cell__detail{font-size:1.85cqw}
 .mag-cell__detail--unit{color:#666;font-size:1.85cqw}
-.mag-cell__price{position:absolute;z-index:2;min-width:0;width:max-content;max-width:48%;text-align:right;
-  padding:.15cqw .2cqw;box-sizing:border-box;overflow:visible;pointer-events:none}
+.mag-cell__price{position:absolute;z-index:2;display:flex;flex-direction:column;align-items:flex-end;
+  min-width:0;width:max-content;max-width:min(60%,100%);text-align:right;
+  padding:0;margin:0;box-sizing:border-box;overflow:visible;pointer-events:none;
+  zoom:var(--box-zoom,1)}
 .mag-cell.is-gesture .mag-cell__price{pointer-events:auto}
-.mag-cell__badge-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:.45cqw;margin-bottom:.3cqw}
+.mag-cell__badge-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:.45cqw;margin-bottom:.3cqw;width:100%}
 .mag-cell__badge{display:inline-block;background:var(--red);color:#fff;font-family:var(--cond);font-weight:900;
   font-size:2.2cqw;line-height:1;padding:.4cqw .6cqw;border-radius:.35cqw;letter-spacing:.02em}
 .mag-cell__badge--special{background:var(--blue);font-size:1.8cqw;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -188,7 +188,7 @@ export default function BuilderInspectorPanel({
               checked={!!display.priceLeft}
               onChange={(e) => {
                 const next = e.target.checked;
-                const text = display.textPos || { x: 3, y: 70, scale: 1 };
+                const text = display.textPos || { x: 0, y: 70, scale: 1 };
                 const price = display.pricePos || { x: 52, y: 64, scale: 1 };
                 onChange({
                   priceLeft: next,

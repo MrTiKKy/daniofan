@@ -56,10 +56,10 @@ export interface BoxPos {
   scale?: number;
 }
 
-export const DEFAULT_TEXT_POS: BoxPos = { x: 3, y: 70, scale: 1 };
+export const DEFAULT_TEXT_POS: BoxPos = { x: 0, y: 70, scale: 1 };
 export const DEFAULT_PRICE_POS: BoxPos = { x: 52, y: 64, scale: 1 };
-export const DEFAULT_TEXT_POS_LEFT: BoxPos = { x: 42, y: 70, scale: 1 };
-export const DEFAULT_PRICE_POS_LEFT: BoxPos = { x: 3, y: 64, scale: 1 };
+export const DEFAULT_TEXT_POS_LEFT: BoxPos = { x: 40, y: 70, scale: 1 };
+export const DEFAULT_PRICE_POS_LEFT: BoxPos = { x: 0, y: 64, scale: 1 };
 
 /** Copie locală pe casuță — nu modifică produsul din tab-ul Produse */
 export interface PageItemDisplay {

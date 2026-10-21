@@ -42,6 +42,10 @@ export function resolvePricePos(d?: PageItemDisplay | null): BoxPos {
   return d?.priceLeft ? { ...DEFAULT_PRICE_POS_LEFT } : { ...DEFAULT_PRICE_POS };
 }
 
+/**
+ * boxWPct / boxHPct = mărimea vizuală curentă (% din casuță), inclusiv zoom.
+ * left/top = colț stânga-sus → clamp 0 … 100−mărime pe toate laturile.
+ */
 export function clampBoxPos(
   x: number,
   y: number,
@@ -49,12 +53,15 @@ export function clampBoxPos(
   boxHPct: number,
   scale = 1,
 ): BoxPos {
-  const maxX = Math.max(0, 100 - Math.max(boxWPct, 8));
-  const maxY = Math.max(0, 100 - Math.max(boxHPct, 6));
+  const s = Math.min(2.4, Math.max(0.45, scale));
+  const w = Math.max(0.5, Math.min(100, boxWPct));
+  const h = Math.max(0.5, Math.min(100, boxHPct));
+  const maxX = Math.max(0, 100 - w);
+  const maxY = Math.max(0, 100 - h);
   return {
     x: Math.round(Math.min(maxX, Math.max(0, x)) * 10) / 10,
     y: Math.round(Math.min(maxY, Math.max(0, y)) * 10) / 10,
-    scale: Math.round(Math.min(2.4, Math.max(0.45, scale)) * 100) / 100,
+    scale: Math.round(s * 100) / 100,
   };
 }
 

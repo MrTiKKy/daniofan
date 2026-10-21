@@ -2,7 +2,13 @@
 'use client';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { BoxPos, ImageLayout } from '@/lib/catalogTypes';
-import { DEFAULT_IMAGE_LAYOUT, DEFAULT_PRICE_POS, DEFAULT_TEXT_POS } from '@/lib/catalogTypes';
+import {
+  DEFAULT_IMAGE_LAYOUT,
+  DEFAULT_PRICE_POS,
+  DEFAULT_PRICE_POS_LEFT,
+  DEFAULT_TEXT_POS,
+  DEFAULT_TEXT_POS_LEFT,
+} from '@/lib/catalogTypes';
 import { clampBoxPos } from '@/lib/pageItemDisplay';
 import * as DF from '@/lib/store';
 import type { Product } from '@/lib/types';
@@ -22,8 +28,6 @@ export type GestureTarget =
   | { kind: 'text' }
   | { kind: 'price' };
 
-/** 2:1 — mișcări și zoom mai fine în modul gesturi */
-const FINE_RATIO = 2;
 const DRAG_THRESHOLD = 5;
 
 function fitBrand(el: HTMLElement | null) {
@@ -83,12 +87,12 @@ export default function ProductCell({
     pointerId: number;
     startX: number;
     startY: number;
-    mode: 'pan' | 'tilt' | 'box';
+    mode: 'pan' | 'box';
     canDrag: boolean;
   } | null>(null);
 
   const dragRef = useRef<{
-    mode: 'pan' | 'tilt' | 'box';
+    mode: 'pan' | 'box';
     target: GestureTarget;
     pointerId: number;
     startX: number;
@@ -122,8 +126,8 @@ export default function ProductCell({
   onImageLayoutRef.current = onImageLayout;
   onBoxPosRef.current = onBoxPos;
 
-  const tPos = textPos || (priceLeft ? { x: 42, y: 70 } : { ...DEFAULT_TEXT_POS });
-  const pPos = pricePos || (priceLeft ? { x: 3, y: 64 } : { ...DEFAULT_PRICE_POS });
+  const tPos = textPos || (priceLeft ? { ...DEFAULT_TEXT_POS_LEFT } : { ...DEFAULT_TEXT_POS });
+  const pPos = pricePos || (priceLeft ? { ...DEFAULT_PRICE_POS_LEFT } : { ...DEFAULT_PRICE_POS });
   tPosRef.current = tPos;
   pPosRef.current = pPos;
 
@@ -138,7 +142,7 @@ export default function ProductCell({
     }
   }, [gestureEdit]);
 
-  /* scroll = resize pe elementul activ (poză / text / preț), raport 2:1 */
+  /* scroll = mărime; Shift+scroll pe poză = tilt */
   useEffect(() => {
     if (!gestureEdit) return;
     const el = cellRef.current;
@@ -149,12 +153,20 @@ export default function ProductCell({
       e.preventDefault();
       e.stopPropagation();
       const pixels = -e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
-      const step = (pixels * 0.0012) / FINE_RATIO;
+      const step = pixels * 0.0012;
 
       if (cur.kind === 'img') {
         const cb = onImageLayoutRef.current;
         if (!cb) return;
         const orig = layoutsRef.current[cur.index] || { ...DEFAULT_IMAGE_LAYOUT };
+        if (e.shiftKey) {
+          const rotate = Math.min(35, Math.max(-35, (orig.rotate || 0) + pixels * 0.045));
+          cb({
+            index: cur.index,
+            layout: { ...orig, rotate: Math.round(rotate * 10) / 10 },
+          });
+          return;
+        }
         const scale = Math.min(2.6, Math.max(0.35, orig.scale + step));
         cb({
           index: cur.index,
@@ -166,11 +178,15 @@ export default function ProductCell({
       const boxCb = onBoxPosRef.current;
       if (!boxCb) return;
       const orig = cur.kind === 'text' ? tPosRef.current : pPosRef.current;
-      const scale = Math.min(2.4, Math.max(0.45, (orig.scale ?? 1) + step));
-      boxCb(cur.kind, {
-        ...orig,
-        scale: Math.round(scale * 100) / 100,
-      });
+      const prevS = Math.max(0.45, orig.scale ?? 1);
+      const scale = Math.min(2.4, Math.max(0.45, prevS + step));
+      const cell = cellRef.current?.getBoundingClientRect();
+      const boxEl = cur.kind === 'text' ? textRef.current : priceRef.current;
+      const box = boxEl?.getBoundingClientRect();
+      const visW = box && cell ? (box.width / cell.width) * 100 : 40;
+      const visH = box && cell ? (box.height / cell.height) * 100 : 20;
+      const factor = scale / prevS;
+      boxCb(cur.kind, clampBoxPos(orig.x, orig.y, visW * factor, visH * factor, scale));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
@@ -226,24 +242,13 @@ export default function ProductCell({
             boxWPct: 0,
             boxHPct: 0,
           };
-        } else if (pend.mode === 'tilt' && pend.target.kind === 'img') {
-          const orig = { ...(layoutsRef.current[pend.target.index] || DEFAULT_IMAGE_LAYOUT) };
-          dragRef.current = {
-            mode: 'tilt',
-            target: pend.target,
-            pointerId: pend.pointerId,
-            startX: pend.startX,
-            startY: pend.startY,
-            imgOrig: orig,
-            areaW: 1,
-            areaH: 1,
-            boxWPct: 0,
-            boxHPct: 0,
-          };
         } else if (pend.mode === 'box' && (pend.target.kind === 'text' || pend.target.kind === 'price')) {
           const orig = pend.target.kind === 'text'
             ? { ...tPosRef.current }
             : { ...pPosRef.current };
+          /* mărime vizuală curentă (zoom inclus în layout) */
+          const boxWPct = box && cell ? (box.width / cell.width) * 100 : 40;
+          const boxHPct = box && cell ? (box.height / cell.height) * 100 : 20;
           dragRef.current = {
             mode: 'box',
             target: pend.target,
@@ -253,8 +258,8 @@ export default function ProductCell({
             boxOrig: orig,
             areaW: cell?.width || 1,
             areaH: cell?.height || 1,
-            boxWPct: box && cell ? (box.width / cell.width) * 100 : 40,
-            boxHPct: box && cell ? (box.height / cell.height) * 100 : 20,
+            boxWPct,
+            boxHPct,
           };
         }
         pendingRef.current = null;
@@ -264,8 +269,8 @@ export default function ProductCell({
       if (!drag || e.pointerId !== drag.pointerId) return;
 
       if (drag.mode === 'pan' && drag.target.kind === 'img' && drag.imgOrig && onImageLayoutRef.current) {
-        const dx = (((e.clientX - drag.startX) / drag.areaW) * 100) / FINE_RATIO;
-        const dy = (((e.clientY - drag.startY) / drag.areaH) * 100) / FINE_RATIO;
+        const dx = ((e.clientX - drag.startX) / drag.areaW) * 100;
+        const dy = ((e.clientY - drag.startY) / drag.areaH) * 100;
         onImageLayoutRef.current({
           index: drag.target.index,
           layout: {
@@ -277,21 +282,11 @@ export default function ProductCell({
         return;
       }
 
-      if (drag.mode === 'tilt' && drag.target.kind === 'img' && drag.imgOrig && onImageLayoutRef.current) {
-        const delta = ((e.clientX - drag.startX) + (e.clientY - drag.startY) * 0.35) / FINE_RATIO;
-        const rotate = Math.min(35, Math.max(-35, (drag.imgOrig.rotate || 0) + delta * 0.18));
-        onImageLayoutRef.current({
-          index: drag.target.index,
-          layout: { ...drag.imgOrig, rotate: Math.round(rotate * 10) / 10 },
-        });
-        return;
-      }
-
       if (drag.mode === 'box' && drag.boxOrig && onBoxPosRef.current) {
         const kind = drag.target.kind === 'text' ? 'text' : 'price';
         if (kind !== 'text' && kind !== 'price') return;
-        const dx = ((e.clientX - drag.startX) / drag.areaW * 100) / FINE_RATIO;
-        const dy = ((e.clientY - drag.startY) / drag.areaH * 100) / FINE_RATIO;
+        const dx = (e.clientX - drag.startX) / drag.areaW * 100;
+        const dy = (e.clientY - drag.startY) / drag.areaH * 100;
         onBoxPosRef.current(kind, clampBoxPos(
           drag.boxOrig.x + dx,
           drag.boxOrig.y + dy,
@@ -330,7 +325,7 @@ export default function ProductCell({
 
   const beginPending = (
     target: GestureTarget,
-    mode: 'pan' | 'tilt' | 'box',
+    mode: 'pan' | 'box',
     e: React.PointerEvent,
   ) => {
     if (!gestureEdit || e.button !== 0) return;
@@ -345,7 +340,7 @@ export default function ProductCell({
       startX: e.clientX,
       startY: e.clientY,
       mode,
-      canDrag: alreadyActive || mode === 'tilt',
+      canDrag: alreadyActive,
     };
     dragRef.current = null;
   };
@@ -366,8 +361,7 @@ export default function ProductCell({
       style={{
         left: `${tPos.x}%`,
         top: `${tPos.y}%`,
-        transform: `scale(${tPos.scale ?? 1})`,
-        transformOrigin: 'top left',
+        ['--box-zoom' as string]: String(tPos.scale ?? 1),
       }}
       onPointerDown={gestureEdit ? (e) => beginPending({ kind: 'text' }, 'box', e) : undefined}
     >
@@ -391,8 +385,7 @@ export default function ProductCell({
       style={{
         left: `${pPos.x}%`,
         top: `${pPos.y}%`,
-        transform: `scale(${pPos.scale ?? 1})`,
-        transformOrigin: priceLeft ? 'top left' : 'top right',
+        ['--box-zoom' as string]: String(pPos.scale ?? 1),
       }}
       onPointerDown={gestureEdit ? (e) => beginPending({ kind: 'price' }, 'box', e) : undefined}
     >
@@ -459,15 +452,6 @@ export default function ProductCell({
                   height={400}
                   draggable={false}
                 />
-                {gestureEdit && imgOn ? (
-                  <button
-                    type="button"
-                    className="mag-cell__img-handle"
-                    aria-label="Înclină poza"
-                    title="Tilt"
-                    onPointerDown={(e) => beginPending({ kind: 'img', index: i }, 'tilt', e)}
-                  />
-                ) : null}
               </div>
             );
           })}

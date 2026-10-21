@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { canPlace } from '@/lib/collision';
 import type { CatalogGrid, CatalogPage, ImageLayout, PageItem, PageItemDisplay } from '@/lib/catalogTypes';
 import {
+  loadMagazineBuilderDraft,
+  saveMagazineBuilderDraft,
+} from '@/lib/magazineBuilderStore';
+import {
   displayAsProduct,
   displayImages,
   layoutLooksOverflow,
@@ -38,15 +42,67 @@ type DragState = {
 
 type HoverCell = { col: number; row: number; ok: boolean };
 
+type ResizeCorner = 'nw' | 'ne' | 'sw' | 'se';
+
 type ResizeState = {
   itemId: string;
   pointerId: number;
+  corner: ResizeCorner;
+  originCol: number;
+  originRow: number;
+  originW: number;
+  originH: number;
   col: number;
   row: number;
   w: number;
   h: number;
   ok: boolean;
 };
+
+const RESIZE_CORNERS: ResizeCorner[] = ['nw', 'ne', 'sw', 'se'];
+
+/** Calculează noul rect în funcție de colțul tras. */
+function computeCornerResize(
+  corner: ResizeCorner,
+  origin: { col: number; row: number; w: number; h: number },
+  endCol: number,
+  endRow: number,
+  grid: CatalogGrid,
+): { col: number; row: number; w: number; h: number } {
+  const left0 = origin.col;
+  const top0 = origin.row;
+  const right0 = origin.col + origin.w - 1;
+  const bottom0 = origin.row + origin.h - 1;
+
+  let left = left0;
+  let top = top0;
+  let right = right0;
+  let bottom = bottom0;
+
+  const ec = Math.max(0, Math.min(endCol, grid.cols - 1));
+  const er = Math.max(0, Math.min(endRow, grid.rows - 1));
+
+  if (corner === 'se') {
+    right = Math.max(left0, ec);
+    bottom = Math.max(top0, er);
+  } else if (corner === 'sw') {
+    left = Math.min(right0, ec);
+    bottom = Math.max(top0, er);
+  } else if (corner === 'ne') {
+    right = Math.max(left0, ec);
+    top = Math.min(bottom0, er);
+  } else {
+    left = Math.min(right0, ec);
+    top = Math.min(bottom0, er);
+  }
+
+  return {
+    col: left,
+    row: top,
+    w: Math.max(1, right - left + 1),
+    h: Math.max(1, bottom - top + 1),
+  };
+}
 
 /** Mutare produs deja pe pagină */
 type MoveState = {
@@ -111,14 +167,13 @@ function nearestCell(
   return { col, row };
 }
 
-function cellInRect(col: number, row: number, rect: { col: number; row: number; w: number; h: number }) {
-  return col >= rect.col && col < rect.col + rect.w && row >= rect.row && row < rect.row + rect.h;
-}
-
 export default function MagazineBuilder({ products, offer }: Props) {
   const [pages, setPages] = useState<CatalogPage[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [panning, setPanning] = useState(false);
   const [gridPickerOpen, setGridPickerOpen] = useState(true);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [hover, setHover] = useState<HoverCell | null>(null);
@@ -142,6 +197,14 @@ export default function MagazineBuilder({ products, offer }: Props) {
   const dragRef = useRef<DragState | null>(null);
   const resizeRef = useRef<ResizeState | null>(null);
   const moveRef = useRef<MoveState | null>(null);
+  const panDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+  } | null>(null);
+  const panPosRef = useRef(pan);
   const pagesRef = useRef(pages);
   const activeIndexRef = useRef(activeIndex);
 
@@ -150,6 +213,27 @@ export default function MagazineBuilder({ products, offer }: Props) {
   dragRef.current = drag;
   resizeRef.current = resize;
   moveRef.current = move;
+  panPosRef.current = pan;
+
+  /* hidratează din localStorage (doar pe client) */
+  useEffect(() => {
+    const draft = loadMagazineBuilderDraft();
+    if (draft && draft.pages.length > 0) {
+      setPages(draft.pages);
+      setActiveIndex(draft.activeIndex);
+      setGridPickerOpen(false);
+    }
+    setReady(true);
+  }, []);
+
+  /* persistă layout-ul în localStorage (debounce) */
+  useEffect(() => {
+    if (!ready) return;
+    const t = window.setTimeout(() => {
+      saveMagazineBuilderDraft(pages, activeIndex);
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [pages, activeIndex, ready]);
 
   const usedIds = useMemo(() => {
     const s = new Set<string>();
@@ -177,6 +261,24 @@ export default function MagazineBuilder({ products, offer }: Props) {
     });
     setGridPickerOpen(false);
     setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  const beginPagePan = useCallback((e: React.PointerEvent) => {
+    if (dragRef.current || resizeRef.current || moveRef.current || panDragRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    pendingSelectRef.current = null;
+    const cur = panPosRef.current;
+    panDragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: cur.x,
+      origY: cur.y,
+    };
+    setPanning(true);
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   }, []);
 
   const cancelGridPicker = useCallback(() => {
@@ -233,17 +335,15 @@ export default function MagazineBuilder({ products, offer }: Props) {
     });
   }, []);
 
-  const applyResize = useCallback((itemId: string, w: number, h: number) => {
+  const applyResize = useCallback((itemId: string, col: number, row: number, w: number, h: number) => {
     const idx = activeIndexRef.current;
     setPages((prev) => {
       const page = prev[idx];
       if (!page?.grid) return prev;
-      const item = page.items.find((it) => it.id === itemId);
-      if (!item) return prev;
-      if (!canPlace({ col: item.col, row: item.row, w, h }, page.grid, page.items, itemId)) return prev;
+      if (!canPlace({ col, row, w, h }, page.grid, page.items, itemId)) return prev;
       return prev.map((pg, i) => (
         i === idx
-          ? { ...pg, items: pg.items.map((it) => (it.id === itemId ? { ...it, w, h } : it)) }
+          ? { ...pg, items: pg.items.map((it) => (it.id === itemId ? { ...it, col, row, w, h } : it)) }
           : pg
       ));
     });
@@ -444,7 +544,7 @@ export default function MagazineBuilder({ products, offer }: Props) {
     });
   }, [products]);
 
-  const onResizeStart = useCallback((item: PageItem, e: React.PointerEvent) => {
+  const onResizeStart = useCallback((item: PageItem, corner: ResizeCorner, e: React.PointerEvent) => {
     if (e.button !== 0 || dragRef.current || moveRef.current) return;
     e.preventDefault();
     e.stopPropagation();
@@ -452,6 +552,11 @@ export default function MagazineBuilder({ products, offer }: Props) {
     const next: ResizeState = {
       itemId: item.id,
       pointerId: e.pointerId,
+      corner,
+      originCol: item.col,
+      originRow: item.row,
+      originW: item.w,
+      originH: item.h,
       col: item.col,
       row: item.row,
       w: item.w,
@@ -498,7 +603,7 @@ export default function MagazineBuilder({ products, offer }: Props) {
     };
   }, [drag, updateHover, placeProduct]);
 
-  /* pointer global — resize pe grilă */
+  /* pointer global — resize pe grilă din orice colț */
   useEffect(() => {
     if (!resize) return;
     const onMove = (e: PointerEvent) => {
@@ -511,19 +616,28 @@ export default function MagazineBuilder({ products, offer }: Props) {
       if (!pageEl || !gridEl || !g || !page) return;
 
       const cell = nearestCell(e.clientX, e.clientY, pageEl, gridEl, g.cols, g.rows);
-      const endCol = cell ? cell.col : r.col + r.w - 1;
-      const endRow = cell ? cell.row : r.row + r.h - 1;
-      const w = Math.max(1, endCol - r.col + 1);
-      const h = Math.max(1, endRow - r.row + 1);
-      const ok = canPlace({ col: r.col, row: r.row, w, h }, g, page.items, r.itemId);
-      const next = { ...r, w, h, ok };
+      const endCol = cell
+        ? cell.col
+        : (r.corner === 'nw' || r.corner === 'sw' ? r.originCol : r.originCol + r.originW - 1);
+      const endRow = cell
+        ? cell.row
+        : (r.corner === 'nw' || r.corner === 'ne' ? r.originRow : r.originRow + r.originH - 1);
+      const rect = computeCornerResize(
+        r.corner,
+        { col: r.originCol, row: r.originRow, w: r.originW, h: r.originH },
+        endCol,
+        endRow,
+        g,
+      );
+      const ok = canPlace(rect, g, page.items, r.itemId);
+      const next = { ...r, ...rect, ok };
       resizeRef.current = next;
       setResize(next);
     };
     const onUp = (e: PointerEvent) => {
       const r = resizeRef.current;
       if (!r || e.pointerId !== r.pointerId) return;
-      if (r.ok) applyResize(r.itemId, r.w, r.h);
+      if (r.ok) applyResize(r.itemId, r.col, r.row, r.w, r.h);
       setResize(null);
       resizeRef.current = null;
     };
@@ -589,13 +703,40 @@ export default function MagazineBuilder({ products, offer }: Props) {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (dragRef.current || resizeRef.current || moveRef.current) return;
+      if (dragRef.current || resizeRef.current || moveRef.current || panDragRef.current) return;
       const delta = -e.deltaY * (e.deltaMode === 1 ? 16 : 1);
       setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z + delta * ZOOM_STEP)));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
+
+  /* Drag pe fundal / click mijloc = pan pagina */
+  useEffect(() => {
+    if (!panning) return;
+    const onMove = (e: PointerEvent) => {
+      const p = panDragRef.current;
+      if (!p || e.pointerId !== p.pointerId) return;
+      setPan({
+        x: p.origX + (e.clientX - p.startX),
+        y: p.origY + (e.clientY - p.startY),
+      });
+    };
+    const onUp = (e: PointerEvent) => {
+      const p = panDragRef.current;
+      if (!p || e.pointerId !== p.pointerId) return;
+      panDragRef.current = null;
+      setPanning(false);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [panning]);
 
   const activePage = pages[activeIndex] || pages[0];
   const grid = activePage?.grid;
@@ -612,7 +753,13 @@ export default function MagazineBuilder({ products, offer }: Props) {
     if (!activePage) return [] as PageItem[];
     return activePage.items.map((it) => {
       if (resizePreview && it.id === resizePreview.itemId) {
-        return { ...it, w: resizePreview.w, h: resizePreview.h };
+        return {
+          ...it,
+          col: resizePreview.col,
+          row: resizePreview.row,
+          w: resizePreview.w,
+          h: resizePreview.h,
+        };
       }
       if (movePreview && it.id === movePreview.itemId) {
         return { ...it, col: movePreview.col, row: movePreview.row };
@@ -634,14 +781,30 @@ export default function MagazineBuilder({ products, offer }: Props) {
     return m;
   }, [displayItems]);
 
+  /* ghost doar la drop din panou; la mutare pe pagină se vede produsul pe grid */
   const ghost = drag
     ? { product: drag.product, x: drag.x, y: drag.y }
-    : move
-      ? { product: move.product, x: move.x, y: move.y }
-      : null;
+    : null;
 
   const busy = !!(drag || resize || move);
   const inGesture = !!gestureId;
+
+  const onWorkspacePointerDown = (e: React.PointerEvent) => {
+    const t = e.target as Element | null;
+    /* click mijloc = pan mereu; click stânga pe fundal/gol = pan */
+    const mid = e.button === 1;
+    const onBlock = !!(t && t.closest('.mag-builder__block, .mag-builder__resize'));
+    const empty = e.button === 0 && !onBlock && !inGesture;
+    if (mid || empty) {
+      if (e.target === e.currentTarget && !mid) setSelectedId(null);
+      beginPagePan(e);
+      return;
+    }
+    if (e.target === e.currentTarget) {
+      if (gestureId) exitGesture();
+      else setSelectedId(null);
+    }
+  };
 
   return (
     <div className={
@@ -649,6 +812,7 @@ export default function MagazineBuilder({ products, offer }: Props) {
       + (busy ? ' is-dragging' : '')
       + (resize ? ' is-resizing' : '')
       + (move ? ' is-moving' : '')
+      + (panning ? ' is-panning' : '')
       + (inGesture ? ' is-gesture-mode' : '')
     }>
       <BuilderProductPanel
@@ -663,12 +827,7 @@ export default function MagazineBuilder({ products, offer }: Props) {
           ref={workspaceRef}
           className="mag-builder__workspace"
           aria-label="Zona revistei"
-          onPointerDown={(e) => {
-            if (e.target === e.currentTarget) {
-              if (gestureId) exitGesture();
-              else setSelectedId(null);
-            }
-          }}
+          onPointerDown={onWorkspacePointerDown}
         >
           {activePage ? (
             <>
@@ -678,7 +837,7 @@ export default function MagazineBuilder({ products, offer }: Props) {
               </div>
               {inGesture ? (
                 <div className="mag-builder__gesture-hint" aria-live="polite">
-                  Click = activează element · apoi trage / scroll · Esc = ieși
+                  Click = activează · trage / scroll = mărime · Shift+scroll pe poză = tilt · Esc = ieși
                 </div>
               ) : null}
               {move ? (
@@ -699,17 +858,12 @@ export default function MagazineBuilder({ products, offer }: Props) {
                 ref={pageRef}
                 className={'mag-builder__page-preview mag-page' + (inGesture ? ' is-gesture-page' : '')}
                 data-page={activePage.id}
-                style={{ transform: `scale(${zoom})` }}
+                style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
               >
                 <div className={'mag-builder__page-inner mag-page__inner' + (inGesture ? ' is-gesture-inner' : '')}>
                   {grid ? (
                     <div
-                      ref={gridRef}
-                      className="mag-builder__grid"
-                      style={{
-                        gridTemplateColumns: `repeat(${grid.cols}, 1fr)`,
-                        gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
-                      }}
+                      className="mag-builder__grid-wrap"
                       onPointerDown={(e) => {
                         if (!inGesture) return;
                         const t = e.target as HTMLElement;
@@ -717,106 +871,118 @@ export default function MagazineBuilder({ products, offer }: Props) {
                         exitGesture();
                       }}
                     >
-                      {Array.from({ length: grid.cols * grid.rows }, (_, i) => {
-                        const col = i % grid.cols;
-                        const row = Math.floor(i / grid.cols);
-                        const item = occupied.get(`${col},${row}`);
-                        const isDropHover = !resize && !move && !inGesture && hover && hover.col === col && hover.row === row;
-                        const inResize = resizePreview && cellInRect(col, row, resizePreview);
-                        const inMove = movePreview && cellInRect(col, row, movePreview);
-                        const previewOk = inResize
-                          ? resizePreview.ok
-                          : inMove
-                            ? movePreview.ok
-                            : isDropHover
-                              ? hover.ok
-                              : null;
-                        return (
-                          <div
-                            key={i}
-                            className={
-                              'mag-builder__slot'
-                              + (item ? ' is-filled' : '')
-                              + (previewOk === true ? ' is-drop-ok' : '')
-                              + (previewOk === false ? ' is-drop-bad' : '')
-                            }
-                            data-col={col}
-                            data-row={row}
-                          />
-                        );
-                      })}
-
-                      {displayItems.filter((it) => it.type === 'product').map((item) => {
-                        const base = item.productId ? productsById.get(item.productId) : null;
-                        if (!base) return null;
-                        const view = displayAsProduct(base, item);
-                        const imgs = displayImages(item, base);
-                        const layouts = normalizeImageLayouts(imgs, item.display?.imageLayouts);
-                        const cellOverflow = !!(item.display?.overflow || item.overflow);
-                        const cellVariant = (item.w * item.h >= 4 || grid.cols <= 2) ? 'std' : 'sm';
-                        const isResizing = resizePreview?.itemId === item.id;
-                        const isMoving = movePreview?.itemId === item.id;
-                        const isSelected = selectedId === item.id;
-                        const isGesture = gestureId === item.id;
-                        const textPos = resolveTextPos(item.display);
-                        const pricePos = resolvePricePos(item.display);
-                        return (
-                          <div
-                            key={item.id}
-                            className={
-                              'mag-builder__block'
-                              + (isSelected ? ' is-selected' : '')
-                              + (isGesture ? ' is-gesture-focus' : '')
-                              + (inGesture && !isGesture ? ' is-gesture-dimmed' : '')
-                              + (isResizing ? (resizePreview.ok ? ' is-resize-ok' : ' is-resize-bad') : '')
-                              + (isMoving ? (movePreview.ok ? ' is-move-ok' : ' is-move-bad') : '')
-                              + (isMoving ? ' is-moving-block' : '')
-                            }
-                            style={{
-                              gridColumn: `${item.col + 1} / span ${item.w}`,
-                              gridRow: `${item.row + 1} / span ${item.h}`,
-                            }}
-                            onPointerDown={(e) => onBlockPointerDown(item, base, e)}
-                            onDoubleClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              pendingSelectRef.current = null;
-                              if (isGesture) exitGesture();
-                              else enterGesture(item.id);
-                            }}
-                          >
-                            <ProductCell
-                              p={view}
-                              variant={cellVariant}
-                              interactive={false}
-                              eager
-                              images={imgs}
-                              imageLayouts={layouts}
-                              overflow={cellOverflow}
-                              priceLeft={!!item.display?.priceLeft}
-                              textPos={textPos}
-                              pricePos={pricePos}
-                              gestureEdit={isGesture}
-                              onImageLayout={isGesture
-                                ? ({ index, layout }) => patchImageLayout(item.id, index, layout)
-                                : undefined}
-                              onBoxPos={isGesture
-                                ? (kind, pos) => patchDisplay(item.id, kind === 'text'
-                                  ? { textPos: pos }
-                                  : { pricePos: pos })
-                                : undefined}
+                      <div
+                        ref={gridRef}
+                        className="mag-builder__grid"
+                        style={{
+                          gridTemplateColumns: `repeat(${grid.cols}, 1fr)`,
+                          gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
+                        }}
+                      >
+                        {Array.from({ length: grid.cols * grid.rows }, (_, i) => {
+                          const col = i % grid.cols;
+                          const row = Math.floor(i / grid.cols);
+                          const item = occupied.get(`${col},${row}`);
+                          /* verde doar la plasare din panou (drag), nu la mutare/resize */
+                          const isDropHover = !!drag && !inGesture && hover
+                            && hover.col === col && hover.row === row;
+                          const previewOk = isDropHover ? hover.ok : null;
+                          return (
+                            <div
+                              key={i}
+                              className={
+                                'mag-builder__slot'
+                                + (item ? ' is-filled' : '')
+                                + (previewOk === true ? ' is-drop-ok' : '')
+                                + (previewOk === false ? ' is-drop-bad' : '')
+                              }
+                              data-col={col}
+                              data-row={row}
                             />
-                            {!isGesture ? (
-                              <button
-                                type="button"
-                                className="mag-builder__resize"
-                                aria-label="Redimensionează produsul"
-                                onPointerDown={(e) => onResizeStart(item, e)}
+                          );
+                        })}
+                      </div>
+
+                      <div
+                        className="mag-builder__items"
+                        style={{
+                          gridTemplateColumns: `repeat(${grid.cols}, 1fr)`,
+                          gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
+                        }}
+                      >
+                        {displayItems.filter((it) => it.type === 'product').map((item) => {
+                          const base = item.productId ? productsById.get(item.productId) : null;
+                          if (!base) return null;
+                          const view = displayAsProduct(base, item);
+                          const imgs = displayImages(item, base);
+                          const layouts = normalizeImageLayouts(imgs, item.display?.imageLayouts);
+                          const cellOverflow = !!(item.display?.overflow || item.overflow);
+                          const cellVariant = (item.w * item.h >= 4 || grid.cols <= 2) ? 'std' : 'sm';
+                          const isResizing = resizePreview?.itemId === item.id;
+                          const isMoving = movePreview?.itemId === item.id;
+                          const isSelected = selectedId === item.id;
+                          const isGesture = gestureId === item.id;
+                          const textPos = resolveTextPos(item.display);
+                          const pricePos = resolvePricePos(item.display);
+                          return (
+                            <div
+                              key={item.id}
+                              className={
+                                'mag-builder__block'
+                                + (isSelected ? ' is-selected' : '')
+                                + (isGesture ? ' is-gesture-focus' : '')
+                                + (inGesture && !isGesture ? ' is-gesture-dimmed' : '')
+                                + (isResizing ? (resizePreview.ok ? ' is-resize-ok' : ' is-resize-bad') : '')
+                                + (isMoving ? (movePreview.ok ? ' is-move-ok' : ' is-move-bad') : '')
+                                + (isMoving ? ' is-moving-block' : '')
+                              }
+                              style={{
+                                gridColumn: `${item.col + 1} / span ${item.w}`,
+                                gridRow: `${item.row + 1} / span ${item.h}`,
+                              }}
+                              onPointerDown={(e) => onBlockPointerDown(item, base, e)}
+                              onDoubleClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                pendingSelectRef.current = null;
+                                if (isGesture) exitGesture();
+                                else enterGesture(item.id);
+                              }}
+                            >
+                              <ProductCell
+                                p={view}
+                                variant={cellVariant}
+                                interactive={false}
+                                eager
+                                images={imgs}
+                                imageLayouts={layouts}
+                                overflow={isGesture ? cellOverflow : false}
+                                priceLeft={!!item.display?.priceLeft}
+                                textPos={textPos}
+                                pricePos={pricePos}
+                                gestureEdit={isGesture}
+                                onImageLayout={isGesture
+                                  ? ({ index, layout }) => patchImageLayout(item.id, index, layout)
+                                  : undefined}
+                                onBoxPos={isGesture
+                                  ? (kind, pos) => patchDisplay(item.id, kind === 'text'
+                                    ? { textPos: pos }
+                                    : { pricePos: pos })
+                                  : undefined}
                               />
-                            ) : null}
-                          </div>
-                        );
-                      })}
+                              {!isGesture ? RESIZE_CORNERS.map((corner) => (
+                                <button
+                                  key={corner}
+                                  type="button"
+                                  className={`mag-builder__resize mag-builder__resize--${corner}`}
+                                  aria-label={`Redimensionează din colțul ${corner.toUpperCase()}`}
+                                  onPointerDown={(e) => onResizeStart(item, corner, e)}
+                                />
+                              )) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -830,7 +996,7 @@ export default function MagazineBuilder({ products, offer }: Props) {
           pages={pages}
           activeIndex={activeIndex}
           products={products}
-          onSelect={(i) => { setActiveIndex(i); setSelectedId(null); setGestureId(null); }}
+          onSelect={(i) => { setActiveIndex(i); setSelectedId(null); setGestureId(null); setPan({ x: 0, y: 0 }); }}
           onAdd={openGridPicker}
           onDelete={deletePage}
         />

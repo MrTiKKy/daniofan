@@ -111,7 +111,9 @@
 .mag-builder{display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr) minmax(240px,300px);height:100%;min-height:0;background:#E8EAEE;overflow:hidden}
 .mag-builder__main{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
 .mag-builder__workspace{position:relative;flex:1;min-height:0;background:#D5D8DE;display:flex;align-items:center;justify-content:center;
-  padding:16px;overflow:hidden;touch-action:none;overscroll-behavior:none}
+  padding:16px;overflow:hidden;touch-action:none;overscroll-behavior:none;cursor:grab}
+.mag-builder.is-panning,.mag-builder.is-panning .mag-builder__workspace{cursor:grabbing!important}
+.mag-builder.is-panning .mag-builder__block{pointer-events:none}
 .mag-builder__page-meta{position:absolute;left:12px;top:12px;z-index:3;background:rgba(17,17,17,.75);color:#fff;
   font:800 13px/1 var(--cond);padding:6px 10px;border-radius:8px;pointer-events:none}
 .mag-builder__trash{position:absolute;left:14px;bottom:14px;z-index:6;
@@ -130,29 +132,43 @@
   font-family:var(--body);color:var(--ink);overflow:hidden;
   background-image:radial-gradient(ellipse at 50% 40%,#fff 0%,#fff 40%,#FFF8D6 100%)}
 .mag-builder__page-inner.is-gesture-inner{overflow:visible}
-.mag-builder__grid{flex:1;min-height:0;display:grid;gap:1cqw 1.4cqw;width:100%;height:100%}
-.mag-builder__slot{position:relative;min-width:0;min-height:0;overflow:hidden;border:1.5px dashed rgba(0,0,0,.14);border-radius:.4cqw;
-  background:transparent;transition:background .08s ease,border-color .08s ease,box-shadow .08s ease;z-index:0}
-.mag-builder__slot.is-filled{border-color:transparent;background:transparent}
+/* wrap: sloturi fixe + overlay produse (nu mai strică CSS grid) */
+.mag-builder__grid-wrap{position:relative;flex:1;min-height:0;width:100%;height:100%;
+  --mag-gap-r:1cqw;--mag-gap-c:1.4cqw}
+.mag-builder__grid{display:grid;gap:var(--mag-gap-r) var(--mag-gap-c);width:100%;height:100%;
+  grid-auto-flow:dense;min-height:0}
+.mag-builder__items{position:absolute;inset:0;z-index:2;display:grid;gap:var(--mag-gap-r) var(--mag-gap-c);
+  width:100%;height:100%;pointer-events:none;min-height:0}
+.mag-builder__slot{position:relative;min-width:0;min-height:0;overflow:hidden;border:1.5px dashed rgba(0,0,0,.16);border-radius:.4cqw;
+  background:transparent;transition:background .08s ease,border-color .08s ease,box-shadow .08s ease;z-index:0;
+  box-sizing:border-box}
+.mag-builder__slot.is-filled{border-color:rgba(0,0,0,.1)}
+/* verde/roșu doar la drop din panou (produs nou) */
 .mag-builder__slot.is-drop-ok{border-color:#0F6B30;border-style:solid;background:rgba(24,160,74,.28);
   box-shadow:inset 0 0 0 2px rgba(15,107,48,.55);z-index:1}
 .mag-builder__slot.is-drop-bad{border-color:var(--red);border-style:solid;background:rgba(227,6,19,.18);
   box-shadow:inset 0 0 0 2px rgba(227,6,19,.35);z-index:1}
 
-/* bloc produs pe grilă (poate acoperi mai multe celule) */
-.mag-builder__block{position:relative;z-index:3;min-width:0;min-height:0;overflow:visible;cursor:grab;
-  border:2px dashed #111;border-radius:.5cqw;background:rgba(255,255,255,.92);box-sizing:border-box;
-  touch-action:none;-webkit-tap-highlight-color:transparent;transition:opacity .18s ease,filter .18s ease}
+/* bloc produs pe overlay — aliniat pe aceeași grilă */
+.mag-builder__block{position:relative;z-index:3;min-width:0;min-height:0;overflow:hidden;cursor:grab;
+  border:2px dashed #111;border-radius:.5cqw;background:rgba(255,255,255,.96);box-sizing:border-box;
+  touch-action:none;-webkit-tap-highlight-color:transparent;pointer-events:auto;
+  transition:border-color .1s ease,box-shadow .1s ease,opacity .12s ease,filter .12s ease}
 .mag-builder__block:active{cursor:grabbing}
 .mag-builder__block.is-resize-ok,.mag-builder__block.is-move-ok{border-color:#0F6B30;border-style:solid;box-shadow:0 0 0 2px rgba(15,107,48,.35)}
 .mag-builder__block.is-resize-bad,.mag-builder__block.is-move-bad{border-color:var(--red);border-style:solid;box-shadow:0 0 0 2px rgba(227,6,19,.3)}
-.mag-builder__block.is-moving-block{opacity:.45}
-.mag-builder__block .mag-cell{height:100%;width:100%;pointer-events:none}
-.mag-builder__resize{position:absolute;right:-7px;bottom:-7px;z-index:5;width:16px;height:16px;padding:0;
-  border:2px solid #111;border-radius:4px;background:var(--yellow);cursor:nwse-resize;
+.mag-builder__block.is-moving-block{opacity:1;z-index:8}
+.mag-builder__block .mag-cell{height:100%;width:100%;pointer-events:none;overflow:hidden}
+.mag-builder__resize{position:absolute;z-index:5;width:16px;height:16px;padding:0;
+  border:2px solid #111;border-radius:4px;background:var(--yellow);
   box-shadow:0 1px 3px rgba(0,0,0,.2);touch-action:none;-webkit-tap-highlight-color:transparent}
+.mag-builder__resize--nw{left:-7px;top:-7px;cursor:nwse-resize}
+.mag-builder__resize--ne{right:-7px;top:-7px;cursor:nesw-resize}
+.mag-builder__resize--sw{left:-7px;bottom:-7px;cursor:nesw-resize}
+.mag-builder__resize--se{right:-7px;bottom:-7px;cursor:nwse-resize}
 .mag-builder__resize:hover,.mag-builder__resize:active{background:#fff;transform:scale(1.08)}
-.mag-builder.is-resizing .mag-builder__resize{cursor:nwse-resize}
+.mag-builder.is-resizing .mag-builder__resize--nw,.mag-builder.is-resizing .mag-builder__resize--se{cursor:nwse-resize}
+.mag-builder.is-resizing .mag-builder__resize--ne,.mag-builder.is-resizing .mag-builder__resize--sw{cursor:nesw-resize}
 .mag-builder.is-moving{cursor:grabbing}
 .mag-builder__empty{font:700 18px/1.3 var(--body);color:#555;text-align:center;padding:20px}
 
@@ -162,9 +178,9 @@
   font:600 12px/1.35 var(--body);text-align:center;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.25)}
 .mag-builder.is-gesture-mode .mag-builder__page-preview{box-shadow:0 12px 36px rgba(0,0,0,.28)}
 .mag-builder__block.is-gesture-dimmed{opacity:.32;filter:brightness(.42);pointer-events:none;z-index:1}
-.mag-builder__block.is-gesture-focus{z-index:40;cursor:default;border-style:solid;border-color:#111;
+.mag-builder__block.is-gesture-focus{z-index:40;cursor:default;border-style:solid;border-color:#111;overflow:visible;
   background:#fff;box-shadow:0 0 0 9999px rgba(0,0,0,.48),0 10px 28px rgba(0,0,0,.22)}
-.mag-builder__block.is-gesture-focus .mag-cell{pointer-events:auto}
+.mag-builder__block.is-gesture-focus .mag-cell{pointer-events:auto;overflow:visible}
 .mag-builder.is-gesture-mode .mag-builder__slot{opacity:.35;pointer-events:none}
 .mag-builder.is-gesture-mode .mag-strip,.mag-builder.is-gesture-mode .bp-panel,.mag-builder.is-gesture-mode .bi-panel{
   pointer-events:none;opacity:.55;transition:opacity .18s ease}
