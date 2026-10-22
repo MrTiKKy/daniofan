@@ -1,13 +1,19 @@
 /* Vizualizator revistă tip Lidl — design Daniofan. */
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  loadPublishedMagazine,
+  MAGAZINE_PUBLISHED_EVENT,
+  MAGAZINE_PUBLISHED_KEY,
+} from '@/lib/magazineBuilderStore';
+import type { CatalogPage } from '@/lib/catalogTypes';
 import * as DF from '@/lib/store';
 import type { OfferData, Product } from '@/lib/types';
 import ProductModal from './ProductModal';
 import SearchPanel from './SearchPanel';
 import Spread from './Spread';
 import TocPanel from './TocPanel';
-import { buildMagazinePages, pageProductIds } from './PageLayouts';
+import { buildCatalogMagazinePages, buildMagazinePages, pageProductIds, type MagPage } from './PageLayouts';
 import { useFlip } from './useFlip';
 import { useZoom } from './useZoom';
 
@@ -33,7 +39,31 @@ function pageLink(page1: number): string {
 }
 
 export default function Magazine({ data, at }: Props) {
-  const pages = useMemo(() => buildMagazinePages(data, at), [data, at]);
+  const [publishedPages, setPublishedPages] = useState<CatalogPage[] | null>(null);
+
+  useEffect(() => {
+    const refresh = () => {
+      const pub = loadPublishedMagazine();
+      setPublishedPages(pub?.pages?.length ? pub.pages : null);
+    };
+    refresh();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === MAGAZINE_PUBLISHED_KEY) refresh();
+    };
+    window.addEventListener('storage', onStorage);
+    window.addEventListener(MAGAZINE_PUBLISHED_EVENT, refresh);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(MAGAZINE_PUBLISHED_EVENT, refresh);
+    };
+  }, []);
+
+  const pages = useMemo(() => {
+    if (publishedPages?.length) {
+      return buildCatalogMagazinePages(publishedPages, data.products);
+    }
+    return buildMagazinePages(data, at);
+  }, [publishedPages, data, at]);
   const offer = useMemo(() => DF.resolveOffer(data, at), [data, at]);
   const flip = useFlip(pages.length);
   const zoom = useZoom(flip.setZoomBlocked);
@@ -204,6 +234,7 @@ export default function Magazine({ data, at }: Props) {
                 flipMs={flip.flipMs}
                 reduced={flip.reduced}
                 handlers={{ onProduct, highlightId }}
+                allProducts={data.products}
               />
             ) : null}
           </div>
@@ -231,6 +262,7 @@ export default function Magazine({ data, at }: Props) {
         viewIndex={flip.viewIndex}
         onClose={() => setTocOpen(false)}
         onJump={(p) => jumpHighlight(p)}
+        allProducts={data.products}
       />
       <SearchPanel
         open={searchOpen}
@@ -254,7 +286,7 @@ export default function Magazine({ data, at }: Props) {
   );
 }
 
-function findPageOf(pages: ReturnType<typeof buildMagazinePages>, id: string): number {
+function findPageOf(pages: MagPage[], id: string): number {
   const i = pages.findIndex((p) => pageProductIds(p).includes(id));
   return i < 0 ? 1 : i + 1;
 }

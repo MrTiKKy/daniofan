@@ -2,6 +2,7 @@
 /* Bandă jos: paginile revistei — previzualizare, adaugă, șterge (cu confirmare dacă are produse). */
 import * as DF from '@/lib/store';
 import type { CatalogGrid, CatalogPage } from '@/lib/catalogTypes';
+import { getPageBgCss, resolvePageChrome } from '@/lib/pageChrome';
 import type { Product } from '@/lib/types';
 
 export function createEmptyPage(grid: CatalogGrid): CatalogPage {
@@ -49,7 +50,11 @@ function PageThumb({
   return (
     <div className={`mag-strip__item${active ? ' is-active' : ''}`}>
       <button type="button" className="mag-strip__thumb" onClick={onSelect} aria-label={`Pagina ${index + 1}`}>
-        <div className="mag-strip__sheet" aria-hidden="true">
+        <div
+          className="mag-strip__sheet"
+          style={{ background: getPageBgCss(resolvePageChrome(page).bg) }}
+          aria-hidden="true"
+        >
           {thumbs.length === 0 ? (
             <div
               className="mag-strip__grid"

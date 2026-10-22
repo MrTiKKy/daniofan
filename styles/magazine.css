@@ -62,6 +62,7 @@
 
 .mag-page__sheet{width:100%;aspect-ratio:1 / 1.414;position:relative;background:#fff;border:2px solid #222;
   overflow:hidden;box-shadow:0 10px 28px rgba(0,0,0,.12)}
+.mag-page--catalog .mag-page__sheet{overflow:visible}
 .mag-page--left .mag-page__sheet{border-right:0;border-radius:4px 0 0 4px;box-shadow:none}
 .mag-page--right .mag-page__sheet{border-left:1px solid #bbb;border-radius:0 4px 4px 0}
 .mag-page--single .mag-page__sheet{border-radius:4px}
@@ -72,10 +73,62 @@
 .mag-page--right .mag-page__sheet::before{left:0;background:linear-gradient(270deg,transparent,rgba(0,0,0,.1))}
 
 .mag-page__inner{position:absolute;inset:0;padding:1.6cqw 1.8cqw 6.8cqw;display:flex;flex-direction:column;font-family:var(--body);color:var(--ink);
-  overflow:hidden;background-image:radial-gradient(ellipse at 50% 40%,#fff 0%,#fff 40%,#FFF8D6 100%)}
+  overflow:hidden;background:#fff}
+.mag-page__inner.has-page-header{padding-top:1.2cqw}
+.mag-page__inner--catalog{overflow:visible}
 .mag-page__meta{position:absolute;left:1.8cqw;right:1.8cqw;bottom:1.6cqw;display:flex;align-items:center;justify-content:space-between;gap:1cqw;pointer-events:none;z-index:2}
 .mag-page__sgr{font-family:var(--body);font-weight:600;font-size:1.7cqw;color:#555}
 .mag-page__folio{font-family:var(--cond);font-weight:800;font-size:2.2cqw;color:#666}
+
+/* ---------- foaie din constructor (publicată) — ca preview ---------- */
+.mag-page-header{
+  --ph-bar:#C6E800;--ph-title:#1B5E20;--ph-badge:var(--red);--ph-badge-ink:#111;
+  --ph-sub-bg:#fff;--ph-sub-fg:#1B5E20;--ph-shadow:rgba(0,0,0,.14);
+  flex:none;display:flex;align-items:flex-end;gap:0;margin:0 0 1.6cqw;padding:.4cqw .2cqw .2cqw;
+  box-sizing:border-box;position:relative;min-height:0;background:transparent;border:0;border-radius:0}
+.mag-page-header__badge{flex:none;position:relative;z-index:3;width:11.5cqw;height:11.5cqw;margin:0 -.6cqw -.4cqw 0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15cqw;
+  background:var(--ph-badge);color:#fff;border:0.45cqw solid #fff;border-radius:28% 32% 30% 34% / 32% 28% 36% 30%;
+  box-shadow:0 .55cqw 1.2cqw var(--ph-shadow),0 0 0 .2cqw rgba(0,0,0,.06);
+  transform:rotate(-8deg);box-sizing:border-box}
+.mag-page-header__badge-top{font:900 3.1cqw/1 var(--cond);letter-spacing:.02em;color:var(--ph-badge-ink);
+  -webkit-text-stroke:.06cqw #fff;paint-order:stroke fill;text-transform:uppercase}
+.mag-page-header__badge-bot{font:700 italic 2.2cqw/1 var(--body);color:#fff;text-transform:lowercase;letter-spacing:.01em}
+.mag-page-header__stack{flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;position:relative;z-index:1;
+  padding-bottom:.15cqw}
+.mag-page-header__title-bar{display:flex;align-items:center;min-height:5.6cqw;padding:.7cqw 3.2cqw .7cqw 2.4cqw;
+  background:var(--ph-bar);border-radius:999px;box-shadow:0 .45cqw 1cqw var(--ph-shadow);box-sizing:border-box}
+.mag-page-header__title{font:900 2.55cqw/1.15 var(--cond);text-transform:uppercase;letter-spacing:.03em;
+  color:var(--ph-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.mag-page-header__sub-bar{align-self:stretch;margin:.15cqw 2.8cqw 0 1.6cqw;padding:.45cqw 1.6cqw .55cqw;
+  background:var(--ph-sub-bg);border-radius:0 0 1cqw 1cqw;box-shadow:0 .35cqw .8cqw var(--ph-shadow);box-sizing:border-box}
+.mag-page-header__sub{display:block;font:700 1.55cqw/1.25 var(--body);text-transform:uppercase;letter-spacing:.02em;
+  color:var(--ph-sub-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.mag-page-header--green{--ph-bar:#C6E800;--ph-title:#1B5E20;--ph-badge:var(--red);--ph-badge-ink:#111;--ph-sub-fg:#1B5E20}
+.mag-page-header--yellow{--ph-bar:var(--yellow);--ph-title:#111;--ph-badge:var(--red);--ph-badge-ink:#111;--ph-sub-fg:#444}
+.mag-page-header--red{--ph-bar:var(--red);--ph-title:#fff;--ph-badge:#111;--ph-badge-ink:#fff;--ph-sub-fg:#8B1018}
+.mag-page-header--red .mag-page-header__badge-top{-webkit-text-stroke:.06cqw var(--red)}
+.mag-page-header--blue{--ph-bar:var(--blue);--ph-title:#fff;--ph-badge:var(--yellow);--ph-badge-ink:#111;--ph-sub-fg:#0A3A9A}
+.mag-page-header--dark{--ph-bar:#222;--ph-title:#fff;--ph-badge:var(--yellow);--ph-badge-ink:#111;--ph-sub-fg:#333}
+
+.mag-catalog{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;position:relative}
+.mag-catalog__grid-wrap{position:relative;flex:1;min-height:0;width:100%;height:100%;
+  --mag-gap-r:1cqw;--mag-gap-c:1.4cqw;overflow:visible}
+.mag-catalog__items{position:absolute;inset:0;z-index:2;display:grid;gap:var(--mag-gap-r) var(--mag-gap-c);
+  width:100%;height:100%;min-height:0}
+.mag-catalog__block{position:relative;z-index:3;min-width:0;min-height:0;overflow:hidden;
+  border:0;border-radius:.5cqw;background:transparent;box-sizing:border-box}
+.mag-catalog__block .mag-cell{height:100%;width:100%;overflow:hidden}
+.mag-catalog__block:has(.mag-cell.is-overflow){overflow:visible}
+.mag-catalog__block:has(.mag-cell.is-overflow) .mag-cell{overflow:visible}
+.mag-catalog__block.is-msg{overflow:hidden;background:transparent}
+.mag-catalog__block.is-msg:has(.mag-msg.has-fade){overflow:visible}
+
+.mag-msg{position:relative;width:100%;height:100%;padding:0;box-sizing:border-box;overflow:hidden;
+  box-shadow:0 .25cqw .6cqw rgba(0,0,0,.08)}
+.mag-msg.has-fade{overflow:visible;box-shadow:none}
+.mag-msg__text{position:absolute;z-index:1;margin:0;max-width:88%;letter-spacing:.03em;line-height:1.15;
+  word-break:break-word;pointer-events:none;transform-origin:top left;zoom:var(--box-zoom,1)}
 
 /* ---------- machete / căsuțe (cqw) ---------- */
 .mag-layout{flex:1;min-height:0;display:flex;flex-direction:column;gap:1cqw}

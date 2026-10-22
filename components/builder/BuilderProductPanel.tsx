@@ -121,52 +121,56 @@ export default function BuilderProductPanel({
             autoComplete="off"
           />
         </label>
-        <label className="bp-filters__field">
-          <span>Categorie</span>
-          <select value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="all">Toate</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </label>
-        <label className="bp-filters__field">
-          <span>Poză</span>
-          <select value={imageFilter} onChange={(e) => setImageFilter(e.target.value as ImageFilter)}>
-            <option value="all">Toate</option>
-            <option value="with">Cu poză</option>
-            <option value="without">Fără poză</option>
-          </select>
-        </label>
-        <label className="bp-filters__field">
-          <span>Tip</span>
-          <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value as KindFilter)}>
-            <option value="all">Toate</option>
-            <option value="hero">Vedete</option>
-            <option value="promo">Cu reducere</option>
-          </select>
-        </label>
+        <div className="bp-filters__row">
+          <label className="bp-filters__field">
+            <span>Categorie</span>
+            <select value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="all">Toate</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+          <label className="bp-filters__field">
+            <span>Poză</span>
+            <select value={imageFilter} onChange={(e) => setImageFilter(e.target.value as ImageFilter)}>
+              <option value="all">Toate</option>
+              <option value="with">Cu poză</option>
+              <option value="without">Fără poză</option>
+            </select>
+          </label>
+          <label className="bp-filters__field">
+            <span>Tip</span>
+            <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value as KindFilter)}>
+              <option value="all">Toate</option>
+              <option value="hero">Vedete</option>
+              <option value="promo">Cu reducere</option>
+            </select>
+          </label>
+        </div>
       </div>
 
-      <div className="bp-panel__grid">
-        {filtered.length === 0 ? (
-          <p className="bp-panel__empty">
-            {products.length === 0
-              ? 'Nu există produse. Adaugă-le din tab-ul Produse.'
-              : 'Niciun produs nu potrivește filtrele.'}
-          </p>
-        ) : (
-          filtered.map((p) => (
-            <ProductMini
-              key={p.id}
-              p={p}
-              offer={offer}
-              used={usedIds.has(p.id)}
-              dragging={draggingId === p.id}
-              onDragStart={(e) => onDragStart(p, e)}
-            />
-          ))
-        )}
+      <div className="bp-panel__scroll">
+        <div className="bp-panel__grid">
+          {filtered.length === 0 ? (
+            <p className="bp-panel__empty">
+              {products.length === 0
+                ? 'Nu există produse. Adaugă-le din tab-ul Produse.'
+                : 'Niciun produs nu potrivește filtrele.'}
+            </p>
+          ) : (
+            filtered.map((p) => (
+              <ProductMini
+                key={p.id}
+                p={p}
+                offer={offer}
+                used={usedIds.has(p.id)}
+                dragging={draggingId === p.id}
+                onDragStart={(e) => onDragStart(p, e)}
+              />
+            ))
+          )}
+        </div>
       </div>
     </aside>
   );

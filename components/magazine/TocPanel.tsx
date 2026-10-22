@@ -1,5 +1,6 @@
 /* Cuprins: miniaturi pe spread, panou dreapta (desktop) / jos (mobil). */
 'use client';
+import type { Product } from '@/lib/types';
 import MagazinePage from './MagazinePage';
 import type { MagPage } from './PageLayouts';
 import type { MagView } from './useFlip';
@@ -12,9 +13,10 @@ interface Props {
   viewIndex: number;
   onClose: () => void;
   onJump: (page1: number) => void;
+  allProducts?: Product[];
 }
 
-export default function TocPanel({ open, pages, views, viewIndex, onClose, onJump }: Props) {
+export default function TocPanel({ open, pages, views, viewIndex, onClose, onJump, allProducts }: Props) {
   if (!open) return null;
   const total = pages.length;
 
@@ -41,7 +43,7 @@ export default function TocPanel({ open, pages, views, viewIndex, onClose, onJum
                 <div className="mag-toc__thumbs">
                   {v.pages.map((p) => (
                     <div key={p} className="mag-toc__thumb">
-                      <MagazinePage page={pages[p - 1]} pageNumber={p} mini />
+                      <MagazinePage page={pages[p - 1]} pageNumber={p} mini allProducts={allProducts} />
                     </div>
                   ))}
                 </div>

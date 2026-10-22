@@ -1,9 +1,11 @@
 /* Machete fixe + căsuțe produs interactive (tap → modal). */
 'use client';
 import * as DF from '@/lib/store';
+import type { CatalogPage } from '@/lib/catalogTypes';
 import type { OfferData, Product, ResolvedOffer, StoreInfo } from '@/lib/types';
 import type { ThemeKey } from '@/lib/themes';
 import { CartIcon, PhoneIcon, PinIcon } from '@/components/icons';
+import CatalogPageSheet, { catalogPageProducts } from './CatalogPageSheet';
 import ProductCell from './ProductCell';
 
 export type MagPage =
@@ -11,8 +13,23 @@ export type MagPage =
   | { kind: 'hero4'; hero: Product; others: Product[] }
   | { kind: 'grid4'; products: Product[] }
   | { kind: 'grid6'; products: Product[] }
+  | { kind: 'catalog'; page: CatalogPage; products: Product[] }
   | { kind: 'back'; store: StoreInfo }
   | { kind: 'empty' };
+
+/** Pagini din constructorul publicat — aspect identic cu preview. */
+export function buildCatalogMagazinePages(
+  catalogPages: CatalogPage[],
+  products: Product[],
+): MagPage[] {
+  return catalogPages
+    .filter((p) => !!p.grid)
+    .map((page) => ({
+      kind: 'catalog' as const,
+      page,
+      products: catalogPageProducts(page, products),
+    }));
+}
 
 export type PageTapHandlers = {
   onProduct?: (p: Product) => void;
@@ -58,7 +75,8 @@ export function pageProducts(page: MagPage): Product[] {
     case 'cover': return page.hero ? [page.hero] : [];
     case 'hero4': return [page.hero, ...page.others];
     case 'grid4':
-    case 'grid6': return page.products;
+    case 'grid6':
+    case 'catalog': return page.products;
     default: return [];
   }
 }
@@ -176,13 +194,33 @@ function EmptyLayout() {
   );
 }
 
-export function PageContent({ page, handlers, eager }: { page: MagPage; handlers?: PageTapHandlers; eager?: boolean }) {
+export function PageContent({
+  page,
+  handlers,
+  eager,
+  allProducts,
+}: {
+  page: MagPage;
+  handlers?: PageTapHandlers;
+  eager?: boolean;
+  /** Catalogul de produse (necesar pentru foile din constructor). */
+  allProducts?: Product[];
+}) {
   const opts: LayoutOpts = { ...handlers, eager };
   switch (page.kind) {
     case 'cover': return <CoverLayout page={page} opts={opts} />;
     case 'hero4': return <Hero4Layout page={page} opts={opts} />;
     case 'grid4': return <GridLayout products={page.products} cols={4} opts={opts} />;
     case 'grid6': return <GridLayout products={page.products} cols={6} opts={opts} />;
+    case 'catalog':
+      return (
+        <CatalogPageSheet
+          page={page.page}
+          products={allProducts || []}
+          handlers={handlers}
+          eager={eager}
+        />
+      );
     case 'back': return <BackLayout store={page.store} />;
     case 'empty': return <EmptyLayout />;
   }

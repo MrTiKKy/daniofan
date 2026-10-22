@@ -107,6 +107,50 @@ export interface PageItem {
   overflow?: boolean;
   /** detalii afișate pe casuță (temporar în ofertă) */
   display?: PageItemDisplay;
+  /** stil bloc mesaj (text pe fundal colorat) */
+  design?: PageItemDesign;
+}
+
+/** Fonturi disponibile pentru bloc mesaj */
+export type MessageFontId = 'cond' | 'body' | 'cond-italic' | 'serif' | 'display';
+
+/** Stil pentru bloc mesaj pe grilă */
+export interface PageItemDesign {
+  background: string;
+  color: string;
+  /** mărime text în cqw */
+  fontSize?: number;
+  align?: 'left' | 'center' | 'right';
+  fontWeight?: number;
+  /** 0 = colțuri drepte, 50 = cerc / pastilă */
+  radius?: number;
+  /** 0 = margini clare, 40 = fade puternic pe margini */
+  edgeFade?: number;
+  fontFamily?: MessageFontId;
+  /** poziție liberă text în bloc (mod gesturi) */
+  textPos?: BoxPos;
+  uppercase?: boolean;
+}
+
+/** Fundal foaie — id din PAGE_BG_PRESETS (șabloane / gradienturi) */
+export type PageBgPresetId = string;
+
+/** Stil bandă header pe pagină */
+export type PageHeaderStyleId = 'red' | 'blue' | 'dark' | 'yellow' | 'green';
+
+export interface PageHeader {
+  enabled: boolean;
+  /** Titlu categorie / pagină */
+  text: string;
+  /** Subtitlu opțional (ex. valabilitate) */
+  subtitle?: string;
+  style: PageHeaderStyleId;
+}
+
+/** Aspect pagină (fundal + header) — per foaie */
+export interface PageChrome {
+  bg: PageBgPresetId;
+  header?: PageHeader;
 }
 
 export interface CatalogPage {
@@ -114,6 +158,8 @@ export interface CatalogPage {
   items: PageItem[];
   /** grilă pe pagină (ex. 3×4 sau 2×4); lipsește → DEFAULT_GRID */
   grid?: CatalogGrid;
+  /** fundal + header (design pagină) */
+  chrome?: PageChrome;
 }
 
 export interface CatalogGrid {

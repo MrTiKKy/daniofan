@@ -6,13 +6,18 @@ html.admin-builder-lock body.admin{padding-bottom:0;height:100dvh;max-height:100
 html.admin-builder-lock body.admin .a-main--builder{
   height:calc(100dvh - var(--admin-chrome, 128px) - 8px);
   max-height:calc(100dvh - var(--admin-chrome, 128px) - 8px);
-  overflow:hidden}
+  overflow:hidden;display:flex;flex-direction:column}
+html.admin-builder-lock body.admin .a-main--builder > .mag-builder{flex:1;min-height:0;height:100%;max-height:100%}
 .a-top{background:var(--red);color:#fff;position:sticky;top:0;z-index:40;box-shadow:0 4px 0 var(--red-dark)}
 .a-in{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .a-brand{display:flex;align-items:center;gap:14px}
 .mini-logo{display:flex;flex-direction:column;line-height:.85;font-family:var(--cond);font-style:italic;font-weight:900;background:#fff;border-radius:10px;padding:6px 10px}
 .mini-logo b{color:var(--blue);font-size:22px}.mini-logo i{color:var(--red);font-size:19px;font-style:italic}
 .a-title{font-family:var(--cond);font-weight:900;font-size:30px;text-transform:uppercase;letter-spacing:.5px}
+.a-top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.a-publish{background:#fff;color:var(--red);min-height:52px;font-size:20px;font-weight:900;border:2px solid #fff;
+  box-shadow:0 4px 0 rgba(0,0,0,.25);text-transform:uppercase;letter-spacing:.02em}
+.a-publish:hover{background:var(--yellow);color:#111;border-color:var(--yellow)}
 .a-open{background:var(--yellow);color:#111;min-height:52px;font-size:22px;box-shadow:0 4px 0 #c9a400}
 .a-tabs{display:flex;gap:0;background:#fff;border-bottom:3px solid #111}
 .a-tab{flex:1;min-height:52px;padding:12px 16px;border:0;background:#fff;color:#111;
@@ -177,7 +182,18 @@ input.bad{border-color:var(--red);background:#FFF0F0}
   .p-card__now{font-size:16px}
   .p-card__edit{min-height:36px;font-size:13px}
   .a-title{font-size:24px}
-  .a-open{font-size:19px;min-height:46px;width:100%}
+  .a-top-actions{width:100%}
+  .a-publish,.a-open{font-size:19px;min-height:46px;flex:1;width:auto}
+}
+@media (max-height:860px){
+  .a-in{padding:6px 12px}
+  .a-title{font-size:24px}
+  .a-publish,.a-open{min-height:42px;font-size:17px}
+  .a-tab{min-height:42px;padding:8px 12px;font-size:17px}
+  html.admin-builder-lock body.admin .a-main--builder{
+    height:calc(100dvh - var(--admin-chrome, 110px) - 4px);
+    max-height:calc(100dvh - var(--admin-chrome, 110px) - 4px);
+  }
 }
 @media print{
   @page{size:A5 portrait;margin:10mm}

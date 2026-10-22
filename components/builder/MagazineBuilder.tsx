@@ -2,11 +2,21 @@
 /* Constructor revistă — panou produse, drag pe grilă, resize, zoom, bandă pagini. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { canPlace } from '@/lib/collision';
-import type { CatalogGrid, CatalogPage, ImageLayout, PageItem, PageItemDisplay } from '@/lib/catalogTypes';
+import type { CatalogGrid, CatalogPage, ImageLayout, PageChrome, PageItem, PageItemDesign, PageItemDisplay } from '@/lib/catalogTypes';
 import {
   loadMagazineBuilderDraft,
   saveMagazineBuilderDraft,
 } from '@/lib/magazineBuilderStore';
+import {
+  createMessageItem,
+  isMessageItem,
+  resolveMessageDesign,
+} from '@/lib/messageBlock';
+import {
+  getPageBgCss,
+  pageHeaderClass,
+  resolvePageChrome,
+} from '@/lib/pageChrome';
 import {
   displayAsProduct,
   displayImages,
@@ -23,10 +33,13 @@ import BuilderInspectorPanel from './BuilderInspectorPanel';
 import BuilderProductPanel from './BuilderProductPanel';
 import GridPickerModal from './GridPickerModal';
 import MagazinePageStrip, { createEmptyPage, productCount } from './MagazinePageStrip';
+import MessageBlock from './MessageBlock';
 
 interface Props {
   products: Product[];
   offer: ResolvedOffer | null;
+  /** Expune starea curentă pentru butonul „Publică revista”. */
+  onBindPublishSource?: (getState: (() => { pages: CatalogPage[]; activeIndex: number }) | null) => void;
 }
 
 const ZOOM_MIN = 0.55;
@@ -60,6 +73,19 @@ type ResizeState = {
 };
 
 const RESIZE_CORNERS: ResizeCorner[] = ['nw', 'ne', 'sw', 'se'];
+
+function DockChevron({ dir }: { dir: 'left' | 'right' | 'up' | 'down' }) {
+  const d =
+    dir === 'left' ? 'M14 5 8 12l6 7'
+      : dir === 'right' ? 'm10 5 6 7-6 7'
+        : dir === 'up' ? 'M5 14l7-6 7 6'
+          : 'M5 10l7 6 7-6';
+  return (
+    <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 /** Calculează noul rect în funcție de colțul tras. */
 function computeCornerResize(
@@ -104,10 +130,10 @@ function computeCornerResize(
   };
 }
 
-/** Mutare produs deja pe pagină */
+/** Mutare item deja pe pagină (produs sau bloc mesaj) */
 type MoveState = {
   itemId: string;
-  product: Product;
+  product: Product | null;
   pointerId: number;
   w: number;
   h: number;
@@ -167,7 +193,7 @@ function nearestCell(
   return { col, row };
 }
 
-export default function MagazineBuilder({ products, offer }: Props) {
+export default function MagazineBuilder({ products, offer, onBindPublishSource }: Props) {
   const [pages, setPages] = useState<CatalogPage[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [ready, setReady] = useState(false);
@@ -182,10 +208,16 @@ export default function MagazineBuilder({ products, offer }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** dublu-click pe casuță → mod gesturi (poze / text↔preț) */
   const [gestureId, setGestureId] = useState<string | null>(null);
+  /** panouri laterale / bandă pagini — ascundere pentru spațiu pe foaie */
+  const [panelLeft, setPanelLeft] = useState(true);
+  const [panelRight, setPanelRight] = useState(true);
+  const [panelBottom, setPanelBottom] = useState(true);
+  /** buton Preview: foaia curată în builder (fără linii / handle-uri) */
+  const [previewMode, setPreviewMode] = useState(false);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const pendingSelectRef = useRef<{
     itemId: string;
-    product: Product;
+    product: Product | null;
     item: PageItem;
     x: number;
     y: number;
@@ -234,6 +266,13 @@ export default function MagazineBuilder({ products, offer }: Props) {
     }, 250);
     return () => window.clearTimeout(t);
   }, [pages, activeIndex, ready]);
+
+  /* leagă starea live de butonul Publică din header */
+  useEffect(() => {
+    if (!onBindPublishSource) return;
+    onBindPublishSource(() => ({ pages, activeIndex }));
+    return () => onBindPublishSource(null);
+  }, [pages, activeIndex, onBindPublishSource]);
 
   const usedIds = useMemo(() => {
     const s = new Set<string>();
@@ -382,22 +421,27 @@ export default function MagazineBuilder({ products, offer }: Props) {
     setGestureId(itemId);
   }, []);
 
-  const onDragStart = useCallback((product: Product, e: React.PointerEvent) => {
-    if (e.button !== 0 || resizeRef.current || moveRef.current) return;
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    const next: DragState = {
-      product,
-      x: e.clientX,
-      y: e.clientY,
-      pointerId: e.pointerId,
-    };
-    setDrag(next);
-    dragRef.current = next;
-    updateHover(e.clientX, e.clientY);
-  }, [updateHover]);
+  const panelDragPendingRef = useRef<{
+    product: Product;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    target: HTMLElement;
+  } | null>(null);
 
-  const beginMove = useCallback((item: PageItem, product: Product, pointerId: number, x: number, y: number) => {
+  const onDragStart = useCallback((product: Product, e: React.PointerEvent) => {
+    if (e.button !== 0 || resizeRef.current || moveRef.current || dragRef.current) return;
+    /* nu captura imediat — lasă scroll pe panoul din stânga până la o mișcare clară */
+    panelDragPendingRef.current = {
+      product,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      target: e.currentTarget as HTMLElement,
+    };
+  }, []);
+
+  const beginMove = useCallback((item: PageItem, product: Product | null, pointerId: number, x: number, y: number) => {
     const next: MoveState = {
       itemId: item.id,
       product,
@@ -416,14 +460,14 @@ export default function MagazineBuilder({ products, offer }: Props) {
     setHover(null);
   }, []);
 
-  const onBlockPointerDown = useCallback((item: PageItem, product: Product, e: React.PointerEvent) => {
+  const onBlockPointerDown = useCallback((item: PageItem, product: Product | null, e: React.PointerEvent) => {
     if (e.button !== 0 || dragRef.current || resizeRef.current || moveRef.current) return;
     /* în mod gesturi pe această casuță — lasă evenimentele la ProductCell */
     if (gestureId === item.id) return;
     e.preventDefault();
     e.stopPropagation();
     setSelectedId(item.id);
-    if (!item.display) {
+    if (product && !item.display) {
       const idx = activeIndexRef.current;
       const snap = snapshotDisplay(product);
       setPages((prev) => prev.map((pg, i) => (
@@ -442,6 +486,48 @@ export default function MagazineBuilder({ products, offer }: Props) {
     };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   }, [gestureId]);
+
+  const addMessageBlock = useCallback(() => {
+    const idx = activeIndexRef.current;
+    const page = pagesRef.current[idx];
+    if (!page) return;
+    const item = createMessageItem(page);
+    if (!item) return;
+    setPages((prev) => prev.map((pg, i) => (
+      i === idx ? { ...pg, items: [...pg.items, item] } : pg
+    )));
+    setSelectedId(item.id);
+    setGestureId(null);
+  }, []);
+
+  const patchMessage = useCallback((itemId: string, patch: { text?: string; design?: Partial<PageItemDesign> }) => {
+    const idx = activeIndexRef.current;
+    setPages((prev) => prev.map((pg, i) => {
+      if (i !== idx) return pg;
+      return {
+        ...pg,
+        items: pg.items.map((it): PageItem => {
+          if (it.id !== itemId || !isMessageItem(it)) return it;
+          /* păstrează tot designul existent — nu reconstrui doar câteva câmpuri */
+          const prevDesign = resolveMessageDesign(it);
+          const design: PageItemDesign = patch.design
+            ? {
+              ...prevDesign,
+              ...patch.design,
+              textPos: patch.design.textPos
+                ? { scale: 1, ...prevDesign.textPos, ...patch.design.textPos }
+                : prevDesign.textPos,
+            }
+            : prevDesign;
+          return {
+            ...it,
+            text: patch.text !== undefined ? patch.text : it.text,
+            design,
+          };
+        }),
+      };
+    }));
+  }, []);
 
   const patchDisplay = useCallback((itemId: string, patch: Partial<PageItemDisplay>) => {
     const idx = activeIndexRef.current;
@@ -476,6 +562,24 @@ export default function MagazineBuilder({ products, offer }: Props) {
       });
     });
   }, [products]);
+
+  const patchChrome = useCallback((patch: Partial<PageChrome>) => {
+    const idx = activeIndexRef.current;
+    setPages((prev) => prev.map((pg, i) => {
+      if (i !== idx) return pg;
+      const cur = resolvePageChrome(pg);
+      const nextHeader = patch.header
+        ? { ...cur.header!, ...patch.header }
+        : cur.header;
+      return {
+        ...pg,
+        chrome: {
+          bg: patch.bg ?? cur.bg,
+          header: nextHeader,
+        },
+      };
+    }));
+  }, []);
 
   /* click = select; drag după prag = mutare (oprit în mod gesturi) */
   useEffect(() => {
@@ -514,6 +618,28 @@ export default function MagazineBuilder({ products, offer }: Props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [gestureId, exitGesture]);
+
+  /* 1–9 selectează pagina cu numărul respectiv */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key < '1' || e.key > '9') return;
+      const el = e.target as HTMLElement | null;
+      if (el) {
+        const tag = el.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable) return;
+      }
+      const idx = Number(e.key) - 1;
+      if (idx >= pages.length) return;
+      e.preventDefault();
+      setActiveIndex(idx);
+      setSelectedId(null);
+      setGestureId(null);
+      setPan({ x: 0, y: 0 });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [pages.length]);
 
   const patchImageLayout = useCallback((itemId: string, index: number, layout: ImageLayout) => {
     const idx = activeIndexRef.current;
@@ -566,6 +692,48 @@ export default function MagazineBuilder({ products, offer }: Props) {
     setResize(next);
     resizeRef.current = next;
   }, []);
+
+  /* pending drag din panoul Produse — scroll liber până la prag */
+  useEffect(() => {
+    const THRESH = 10;
+    const onMove = (e: PointerEvent) => {
+      const pend = panelDragPendingRef.current;
+      if (!pend || e.pointerId !== pend.pointerId || dragRef.current) return;
+      const dx = e.clientX - pend.startX;
+      const dy = e.clientY - pend.startY;
+      if (Math.hypot(dx, dy) < THRESH) return;
+      /* scroll vertical pe listă — nu începe drag */
+      if (Math.abs(dy) > Math.abs(dx) * 1.25) {
+        panelDragPendingRef.current = null;
+        return;
+      }
+      e.preventDefault();
+      pend.target.setPointerCapture?.(e.pointerId);
+      const next: DragState = {
+        product: pend.product,
+        x: e.clientX,
+        y: e.clientY,
+        pointerId: e.pointerId,
+      };
+      panelDragPendingRef.current = null;
+      setDrag(next);
+      dragRef.current = next;
+      updateHover(e.clientX, e.clientY);
+    };
+    const onUp = (e: PointerEvent) => {
+      const pend = panelDragPendingRef.current;
+      if (!pend || e.pointerId !== pend.pointerId) return;
+      panelDragPendingRef.current = null;
+    };
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [updateHover]);
 
   /* pointer global — drop produs din sertar */
   useEffect(() => {
@@ -740,6 +908,10 @@ export default function MagazineBuilder({ products, offer }: Props) {
 
   const activePage = pages[activeIndex] || pages[0];
   const grid = activePage?.grid;
+  const pageChrome = resolvePageChrome(activePage);
+  const pageHeader = pageChrome.header!;
+  const showPageHeader = pageHeader.enabled && !!pageHeader.text.trim();
+
 
   const resizePreview = resize
     ? { col: resize.col, row: resize.row, w: resize.w, h: resize.h, ok: resize.ok, itemId: resize.itemId }
@@ -771,7 +943,6 @@ export default function MagazineBuilder({ products, offer }: Props) {
   const occupied = useMemo(() => {
     const m = new Map<string, PageItem>();
     for (const it of displayItems) {
-      if (it.type !== 'product') continue;
       for (let r = it.row; r < it.row + it.h; r++) {
         for (let c = it.col; c < it.col + it.w; c++) {
           m.set(`${c},${r}`, it);
@@ -806,6 +977,17 @@ export default function MagazineBuilder({ products, offer }: Props) {
     }
   };
 
+  const togglePreview = useCallback(() => {
+    setPreviewMode((on) => {
+      const next = !on;
+      if (next) {
+        setSelectedId(null);
+        setGestureId(null);
+      }
+      return next;
+    });
+  }, []);
+
   return (
     <div className={
       'mag-builder'
@@ -814,14 +996,31 @@ export default function MagazineBuilder({ products, offer }: Props) {
       + (move ? ' is-moving' : '')
       + (panning ? ' is-panning' : '')
       + (inGesture ? ' is-gesture-mode' : '')
+      + (previewMode ? ' is-preview' : '')
+      + (panelLeft ? '' : ' is-left-collapsed')
+      + (panelRight ? '' : ' is-right-collapsed')
+      + (panelBottom ? '' : ' is-bottom-collapsed')
     }>
-      <BuilderProductPanel
-        products={products}
-        offer={offer}
-        usedIds={usedIds}
-        draggingId={drag?.product.id || null}
-        onDragStart={onDragStart}
-      />
+      <div className="mag-dock mag-dock--left">
+        <div className="mag-dock__clip">
+          <BuilderProductPanel
+            products={products}
+            offer={offer}
+            usedIds={usedIds}
+            draggingId={drag?.product.id || null}
+            onDragStart={onDragStart}
+          />
+        </div>
+        <button
+          type="button"
+          className="mag-dock__btn"
+          aria-label={panelLeft ? 'Ascunde produsele' : 'Arată produsele'}
+          aria-expanded={panelLeft}
+          onClick={() => setPanelLeft((v) => !v)}
+        >
+          <DockChevron dir={panelLeft ? 'left' : 'right'} />
+        </button>
+      </div>
       <div className="mag-builder__main">
         <div
           ref={workspaceRef}
@@ -831,10 +1030,12 @@ export default function MagazineBuilder({ products, offer }: Props) {
         >
           {activePage ? (
             <>
-              <div className="mag-builder__page-meta" aria-hidden="true">
-                Pagina {activeIndex + 1}{grid ? ` · ${grid.cols}×${grid.rows}` : ''} · {Math.round(zoom * 100)}%
-                {inGesture ? ' · Gesturi' : ''}
-              </div>
+              {!previewMode ? (
+                <div className="mag-builder__page-meta" aria-hidden="true">
+                  Pagina {activeIndex + 1}{grid ? ` · ${grid.cols}×${grid.rows}` : ''} · {Math.round(zoom * 100)}%
+                  {inGesture ? ' · Gesturi' : ''}
+                </div>
+              ) : null}
               {inGesture ? (
                 <div className="mag-builder__gesture-hint" aria-live="polite">
                   Click = activează · trage / scroll = mărime · Shift+scroll pe poză = tilt · Esc = ieși
@@ -860,7 +1061,35 @@ export default function MagazineBuilder({ products, offer }: Props) {
                 data-page={activePage.id}
                 style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
               >
-                <div className={'mag-builder__page-inner mag-page__inner' + (inGesture ? ' is-gesture-inner' : '')}>
+                <div
+                  className={
+                    'mag-builder__page-inner mag-page__inner'
+                    + (showPageHeader ? ' has-page-header' : '')
+                    + (inGesture ? ' is-gesture-inner' : '')
+                  }
+                  style={{ background: getPageBgCss(pageChrome.bg) }}
+                >
+                  {showPageHeader ? (
+                    <header
+                      className={`mag-page-header ${pageHeaderClass(pageHeader.style)}`}
+                      aria-label={pageHeader.text.trim()}
+                    >
+                      <div className="mag-page-header__badge" aria-hidden="true">
+                        <span className="mag-page-header__badge-top">TOP</span>
+                        <span className="mag-page-header__badge-bot">oferte</span>
+                      </div>
+                      <div className="mag-page-header__stack">
+                        <div className="mag-page-header__title-bar">
+                          <span className="mag-page-header__title">{pageHeader.text.trim()}</span>
+                        </div>
+                        {pageHeader.subtitle?.trim() ? (
+                          <div className="mag-page-header__sub-bar">
+                            <span className="mag-page-header__sub">{pageHeader.subtitle.trim()}</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    </header>
+                  ) : null}
                   {grid ? (
                     <div
                       className="mag-builder__grid-wrap"
@@ -910,18 +1139,19 @@ export default function MagazineBuilder({ products, offer }: Props) {
                           gridTemplateRows: `repeat(${grid.rows}, 1fr)`,
                         }}
                       >
-                        {displayItems.filter((it) => it.type === 'product').map((item) => {
-                          const base = item.productId ? productsById.get(item.productId) : null;
-                          if (!base) return null;
-                          const view = displayAsProduct(base, item);
-                          const imgs = displayImages(item, base);
-                          const layouts = normalizeImageLayouts(imgs, item.display?.imageLayouts);
-                          const cellOverflow = !!(item.display?.overflow || item.overflow);
-                          const cellVariant = (item.w * item.h >= 4 || grid.cols <= 2) ? 'std' : 'sm';
+                        {displayItems.map((item) => {
+                          const isMsg = isMessageItem(item);
+                          const base = !isMsg && item.productId ? productsById.get(item.productId) : null;
+                          if (!isMsg && !base) return null;
                           const isResizing = resizePreview?.itemId === item.id;
                           const isMoving = movePreview?.itemId === item.id;
                           const isSelected = selectedId === item.id;
                           const isGesture = gestureId === item.id;
+                          const view = base ? displayAsProduct(base, item) : null;
+                          const imgs = base ? displayImages(item, base) : [];
+                          const layouts = base ? normalizeImageLayouts(imgs, item.display?.imageLayouts) : [];
+                          const cellOverflow = !!(item.display?.overflow || item.overflow);
+                          const cellVariant = (item.w * item.h >= 4 || grid.cols <= 2) ? 'std' : 'sm';
                           const textPos = resolveTextPos(item.display);
                           const pricePos = resolvePricePos(item.display);
                           return (
@@ -929,6 +1159,7 @@ export default function MagazineBuilder({ products, offer }: Props) {
                               key={item.id}
                               className={
                                 'mag-builder__block'
+                                + (isMsg ? ' is-msg' : '')
                                 + (isSelected ? ' is-selected' : '')
                                 + (isGesture ? ' is-gesture-focus' : '')
                                 + (inGesture && !isGesture ? ' is-gesture-dimmed' : '')
@@ -940,8 +1171,8 @@ export default function MagazineBuilder({ products, offer }: Props) {
                                 gridColumn: `${item.col + 1} / span ${item.w}`,
                                 gridRow: `${item.row + 1} / span ${item.h}`,
                               }}
-                              onPointerDown={(e) => onBlockPointerDown(item, base, e)}
-                              onDoubleClick={(e) => {
+                              onPointerDown={previewMode ? undefined : (e) => onBlockPointerDown(item, base ?? null, e)}
+                              onDoubleClick={previewMode ? undefined : (e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 pendingSelectRef.current = null;
@@ -949,28 +1180,38 @@ export default function MagazineBuilder({ products, offer }: Props) {
                                 else enterGesture(item.id);
                               }}
                             >
-                              <ProductCell
-                                p={view}
-                                variant={cellVariant}
-                                interactive={false}
-                                eager
-                                images={imgs}
-                                imageLayouts={layouts}
-                                overflow={isGesture ? cellOverflow : false}
-                                priceLeft={!!item.display?.priceLeft}
-                                textPos={textPos}
-                                pricePos={pricePos}
-                                gestureEdit={isGesture}
-                                onImageLayout={isGesture
-                                  ? ({ index, layout }) => patchImageLayout(item.id, index, layout)
-                                  : undefined}
-                                onBoxPos={isGesture
-                                  ? (kind, pos) => patchDisplay(item.id, kind === 'text'
-                                    ? { textPos: pos }
-                                    : { pricePos: pos })
-                                  : undefined}
-                              />
-                              {!isGesture ? RESIZE_CORNERS.map((corner) => (
+                              {isMsg ? (
+                                <MessageBlock
+                                  item={item}
+                                  gestureEdit={isGesture}
+                                  onTextPos={isGesture
+                                    ? (pos) => patchMessage(item.id, { design: { textPos: pos } })
+                                    : undefined}
+                                />
+                              ) : view ? (
+                                <ProductCell
+                                  p={view}
+                                  variant={cellVariant}
+                                  interactive={false}
+                                  eager
+                                  images={imgs}
+                                  imageLayouts={layouts}
+                                  overflow={(isGesture || previewMode) ? cellOverflow : false}
+                                  priceLeft={!!item.display?.priceLeft}
+                                  textPos={textPos}
+                                  pricePos={pricePos}
+                                  gestureEdit={isGesture}
+                                  onImageLayout={isGesture
+                                    ? ({ index, layout }) => patchImageLayout(item.id, index, layout)
+                                    : undefined}
+                                  onBoxPos={isGesture
+                                    ? (kind, pos) => patchDisplay(item.id, kind === 'text'
+                                      ? { textPos: pos }
+                                      : { pricePos: pos })
+                                    : undefined}
+                                />
+                              ) : null}
+                              {!isGesture && !previewMode ? RESIZE_CORNERS.map((corner) => (
                                 <button
                                   key={corner}
                                   type="button"
@@ -992,30 +1233,73 @@ export default function MagazineBuilder({ products, offer }: Props) {
             <p className="mag-builder__empty">Alege o grilă pentru prima pagină</p>
           )}
         </div>
-        <MagazinePageStrip
-          pages={pages}
-          activeIndex={activeIndex}
-          products={products}
-          onSelect={(i) => { setActiveIndex(i); setSelectedId(null); setGestureId(null); setPan({ x: 0, y: 0 }); }}
-          onAdd={openGridPicker}
-          onDelete={deletePage}
-        />
+        <div className="mag-dock mag-dock--bottom">
+          <button
+            type="button"
+            className="mag-dock__btn"
+            aria-label={panelBottom ? 'Ascunde paginile' : 'Arată paginile'}
+            aria-expanded={panelBottom}
+            onClick={() => setPanelBottom((v) => !v)}
+          >
+            <DockChevron dir={panelBottom ? 'down' : 'up'} />
+          </button>
+          {!panelBottom ? (
+            <button
+              type="button"
+              className="mag-dock__add-page"
+              onClick={openGridPicker}
+            >
+              + Adaugă pagină
+            </button>
+          ) : null}
+          <div className="mag-dock__clip">
+            <MagazinePageStrip
+              pages={pages}
+              activeIndex={activeIndex}
+              products={products}
+              onSelect={(i) => { setActiveIndex(i); setSelectedId(null); setGestureId(null); setPan({ x: 0, y: 0 }); }}
+              onAdd={openGridPicker}
+              onDelete={deletePage}
+            />
+          </div>
+        </div>
       </div>
 
       {(() => {
         const sel = activePage?.items.find((it) => it.id === selectedId) || null;
         const base = sel?.productId ? productsById.get(sel.productId) || null : null;
-        const display = sel
+        const display = sel && !isMessageItem(sel)
           ? (sel.display || (base ? snapshotDisplay(base) : null))
           : null;
         return (
-          <BuilderInspectorPanel
-            item={sel}
-            baseProduct={base}
-            display={display}
-            onChange={(patch) => { if (sel) patchDisplay(sel.id, patch); }}
-            onClose={() => setSelectedId(null)}
-          />
+          <div className="mag-dock mag-dock--right">
+            <button
+              type="button"
+              className="mag-dock__btn"
+              aria-label={panelRight ? 'Ascunde instrumentele' : 'Arată instrumentele'}
+              aria-expanded={panelRight}
+              onClick={() => setPanelRight((v) => !v)}
+            >
+              <DockChevron dir={panelRight ? 'right' : 'left'} />
+            </button>
+            <div className="mag-dock__clip">
+              <BuilderInspectorPanel
+                item={sel}
+                baseProduct={base}
+                display={display}
+                page={activePage || null}
+                canPreview={!!activePage?.grid}
+                previewOn={previewMode}
+                onPreview={togglePreview}
+                onChange={(patch) => { if (sel) patchDisplay(sel.id, patch); }}
+                onChromeChange={patchChrome}
+                onAddMessage={addMessageBlock}
+                onMessageChange={(patch) => { if (sel) patchMessage(sel.id, patch); }}
+                onRemoveMessage={() => { if (sel) removeItem(sel.id); }}
+                onClose={() => setSelectedId(null)}
+              />
+            </div>
+          </div>
         );
       })()}
 

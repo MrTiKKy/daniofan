@@ -10,6 +10,12 @@ import { drawQR } from '@/lib/qr';
 import { download, num, processImage } from '@/lib/image';
 import type { LocalStats, OfferData, Product } from '@/lib/types';
 import MagazineBuilder from '@/components/builder/MagazineBuilder';
+import type { CatalogPage } from '@/lib/catalogTypes';
+import {
+  loadMagazineBuilderDraft,
+  publishMagazine,
+  saveMagazineBuilderDraft,
+} from '@/lib/magazineBuilderStore';
 import ProductCard from './ProductCard';
 import ProductRow, { type FieldKey, type RowAction } from './ProductRow';
 import Stats from './Stats';
@@ -30,6 +36,13 @@ export default function AdminPanel() {
   const [tab, setTab] = useState<'constructor' | 'produse'>('produse');
   const [productQuery, setProductQuery] = useState('');
   const [editIndex, setEditIndex] = useState<number | null>(null);
+  const publishSourceRef = useRef<(() => { pages: CatalogPage[]; activeIndex: number }) | null>(null);
+  const bindPublishSource = useCallback(
+    (getState: (() => { pages: CatalogPage[]; activeIndex: number }) | null) => {
+      publishSourceRef.current = getState;
+    },
+    [],
+  );
 
   const dataRef = useRef<OfferData | null>(null);
   const socialUrlsRef = useRef<Partial<Record<FormatKey, string>>>({});
@@ -48,6 +61,25 @@ export default function AdminPanel() {
     window.clearTimeout(flashT.current);
     flashT.current = window.setTimeout(() => setSaved((s) => ({ ...s, show: false })), err ? 5000 : 2200);
   }, []);
+
+  const publishRevista = useCallback(() => {
+    const live = publishSourceRef.current?.();
+    const pages = live?.pages ?? loadMagazineBuilderDraft()?.pages ?? [];
+    const activeIndex = live?.activeIndex ?? loadMagazineBuilderDraft()?.activeIndex ?? 0;
+    const withGrid = pages.filter((p) => !!p.grid);
+    if (!withGrid.length) {
+      flash('Adaugă cel puțin o pagină în Constructor înainte de publicare.', true);
+      if (tab !== 'constructor') setTab('constructor');
+      return;
+    }
+    try {
+      saveMagazineBuilderDraft(pages, activeIndex);
+      publishMagazine(pages);
+      flash('✓ Revista a fost publicată. Deschide pliantul clientului.');
+    } catch (err) {
+      flash(err instanceof Error ? err.message : 'Publicarea a eșuat.', true);
+    }
+  }, [flash, tab]);
 
   const persist = useCallback((next: OfferData) => {
     window.clearTimeout(saveT.current);
@@ -318,7 +350,12 @@ export default function AdminPanel() {
       <header className="a-top">
         <div className="a-in">
           <div className="a-brand"><span className="mini-logo"><b>DANIOFAN</b><i>MARKET</i></span><span className="a-title">Panou angajați</span></div>
-          <a className="btn a-open" href="/" target="_blank" rel="noopener">Vezi pliantul clientului →</a>
+          <div className="a-top-actions">
+            <button type="button" className="btn a-publish" onClick={publishRevista}>
+              Publică revista
+            </button>
+            <a className="btn a-open" href="/" target="_blank" rel="noopener">Vezi pliantul clientului →</a>
+          </div>
         </div>
       </header>
       <div className="a-tabs" role="tablist" aria-label="Secțiuni panou">
@@ -346,7 +383,11 @@ export default function AdminPanel() {
 
       {tab === 'constructor' ? (
         <main className="a-main a-main--builder" aria-labelledby="tab-constructor">
-          <MagazineBuilder products={data?.products || []} offer={resolved} />
+          <MagazineBuilder
+            products={data?.products || []}
+            offer={resolved}
+            onBindPublishSource={bindPublishSource}
+          />
         </main>
       ) : (
       <main className="a-main" aria-labelledby="tab-produse">

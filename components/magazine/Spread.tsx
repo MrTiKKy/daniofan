@@ -1,5 +1,6 @@
 /* Strip orizontal: spread curent + vecini (±1) lipite, deja randate. */
 'use client';
+import type { Product } from '@/lib/types';
 import MagazinePage from './MagazinePage';
 import type { MagPage, PageTapHandlers } from './PageLayouts';
 import type { MagView } from './useFlip';
@@ -14,16 +15,18 @@ interface Props {
   flipMs: number;
   reduced: boolean;
   handlers?: PageTapHandlers;
+  allProducts?: Product[];
 }
 
 function Slot({
-  view, pages, active, eager, handlers,
+  view, pages, active, eager, handlers, allProducts,
 }: {
   view: MagView;
   pages: MagPage[];
   active: boolean;
   eager: boolean;
   handlers?: PageTapHandlers;
+  allProducts?: Product[];
 }) {
   const alone = view.pages.length === 1;
   const left = alone ? null : view.pages[0];
@@ -39,6 +42,7 @@ function Slot({
           active={active}
           eager={eager}
           handlers={active ? handlers : undefined}
+          allProducts={allProducts}
         />
       ) : null}
       {right != null ? (
@@ -49,6 +53,7 @@ function Slot({
           active={active}
           eager={eager}
           handlers={active ? handlers : undefined}
+          allProducts={allProducts}
         />
       ) : null}
     </div>
@@ -57,7 +62,7 @@ function Slot({
 
 export default function Spread({
   pages, views, viewIndex,
-  dragProgress, flipping, flipMs, reduced, handlers,
+  dragProgress, flipping, flipMs, reduced, handlers, allProducts,
 }: Props) {
   const hasPrev = viewIndex > 0;
   const hasNext = viewIndex < views.length - 1;
@@ -95,6 +100,7 @@ export default function Spread({
             active={index === viewIndex}
             eager
             handlers={handlers}
+            allProducts={allProducts}
           />
         ))}
       </div>
