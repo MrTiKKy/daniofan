@@ -1,0 +1,220 @@
+/* Pagina de pornire publică — stil pliant Daniofan (culori + fonturi existente). */
+:root{
+  --red:#E30613; --red-dark:#A8000C; --yellow:#FFE100; --yellow-deep:#FFC400;
+  --blue:#1559E0; --blue-dark:#0A2A82; --ink:#121212;
+  --cream:#FBF8F0;
+  --cond:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Barlow",Arial,sans-serif;
+  --home-header-h:56px;
+}
+body{margin:0;font-family:var(--body);font-size:18px;line-height:1.35;color:var(--ink);background:var(--cream);
+  padding-bottom:0}
+a{color:inherit}
+.home{min-height:100dvh;padding-bottom:32px}
+.home__main{max-width:960px;margin:0 auto;padding:16px}
+.home__loading{margin:40px 0;text-align:center;font:700 20px/1.3 var(--body);color:#555}
+.home__grid{display:flex;flex-direction:column;gap:28px}
+.home__slot{min-width:0}
+
+/* —— antet sticky —— */
+.home-header{position:sticky;top:0;z-index:40;height:var(--home-header-h);background:var(--red);color:#fff;
+  box-shadow:0 3px 0 var(--red-dark)}
+.home-header__in{height:100%;max-width:960px;margin:0 auto;padding:0 12px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.home-header__call{flex:none;width:44px;height:44px;border-radius:50%;background:var(--yellow);color:#111;
+  display:grid;place-items:center;box-shadow:0 3px 0 #c9a400;text-decoration:none}
+.home-header__call svg{width:22px;height:22px}
+.home-header__call:focus-visible,.home-mag__btn:focus-visible,.home-mag__cover-link:focus-visible{
+  outline:3px solid var(--yellow);outline-offset:3px}
+
+/* —— bandă urgență —— */
+.home-urgency{background:var(--yellow);color:#111;padding:10px 14px;text-align:center;
+  box-shadow:0 3px 0 var(--yellow-deep)}
+.home-urgency.is-last{background:var(--red);color:#fff;box-shadow:0 3px 0 var(--red-dark)}
+.home-urgency__text{margin:0;font:800 18px/1.25 var(--cond);text-transform:uppercase;letter-spacing:.02em;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 8px}
+.home-urgency__sub{font-weight:900}
+.home-urgency.is-last .home-urgency__sub{color:var(--yellow)}
+
+/* —— card revistă —— */
+.home-mag{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+.home-mag__cover-link{display:block;text-decoration:none;border-radius:8px}
+/* Foaie A4 (1∶√2) — ca în constructor; nu forțăm pătrat */
+.home-mag__cover{position:relative;width:100%;aspect-ratio:1 / 1.414;height:auto;border:2px solid #222;border-radius:6px;
+  background:#fff;overflow:hidden;box-shadow:0 10px 28px rgba(0,0,0,.14);box-sizing:border-box}
+.home-mag--tilt-l .home-mag__cover{transform:rotate(-1.5deg)}
+.home-mag--tilt-r .home-mag__cover{transform:rotate(1.5deg)}
+/* Prima foaie publicată — același layout ca preview în constructor */
+.home-mag__page{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.home-mag__page .mag-page{width:100%;height:100%}
+.home-mag__page .mag-page__sheet{width:100%;height:100%;aspect-ratio:auto;border:0;border-radius:0;box-shadow:none;overflow:hidden}
+.home-mag__page .mag-page__meta{display:none}
+/* padding ca în constructor preview (fără spațiu pentru folio) */
+.home-mag__page .mag-page__inner{padding:2cqw 2.2cqw 3cqw}
+.home-mag__page .mag-page__inner.has-page-header{padding-top:1.6cqw;padding-left:1.6cqw;padding-right:1.6cqw}
+.home-mag__placeholder{width:100%;height:100%;display:grid;place-items:center;padding:20px;box-sizing:border-box;
+  background:linear-gradient(165deg,#FFF9E0,#FFE8B0 55%,#FFD8A0);font:900 28px/1.1 var(--cond);text-transform:uppercase;
+  text-align:center;color:var(--red)}
+.home-mag__title{margin:6px 0 0;font:900 32px/1.05 var(--cond);text-transform:uppercase;letter-spacing:.02em}
+.home-mag__period{margin:0;font:700 18px/1.2 var(--body);color:#444}
+.home-mag__btn{display:flex;align-items:center;justify-content:center;min-height:56px;padding:12px 18px;
+  border:2px solid #111;border-radius:14px;background:var(--red);color:#fff;
+  font:800 22px/1.1 var(--cond);text-transform:uppercase;text-decoration:none;letter-spacing:.02em;
+  box-shadow:0 4px 0 var(--red-dark);-webkit-tap-highlight-color:transparent}
+.home-mag__btn:active{transform:scale(.98)}
+
+/* —— fără ofertă —— */
+.home-empty{padding:28px 18px;border:2px dashed #C9CDD6;border-radius:16px;background:#fff;text-align:center}
+.home-empty--large{margin:24px auto;max-width:420px;padding:48px 20px}
+.home-empty__title{margin:0 0 8px;font:900 26px/1.15 var(--cond);text-transform:uppercase;color:var(--ink)}
+.home-empty--large .home-empty__title{font-size:34px}
+.home-empty__sub{margin:0;font:700 20px/1.3 var(--body);color:var(--red)}
+
+/* pe mobil: păstrăm A4 — limităm înălțimea prin lățime, nu prin max-height (altfel devine patrat) */
+@media (max-width:767px){
+  .home-mag__cover{
+    width:min(100%, calc(min(58vh, 560px) / 1.414));
+    max-height:none;
+    margin:0 auto;
+  }
+  .home__grid{gap:22px}
+}
+
+@media (min-width:768px){
+  .home__main{padding:20px 24px 40px}
+  .home__grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+  .home-mag__title{font-size:36px}
+  .home-urgency__text{font-size:20px}
+}
+
+/* —— bandă cel mai apropiat magazin —— */
+.nearest{
+  display:flex;align-items:stretch;min-height:48px;background:#fff;border-bottom:1px solid #E2E4EA;
+  box-shadow:0 1px 0 rgba(0,0,0,.04);
+}
+.nearest__main{
+  flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:8px 10px 8px 12px;
+  border:0;background:transparent;text-align:left;cursor:pointer;font:inherit;color:inherit;
+  -webkit-tap-highlight-color:transparent;
+}
+.nearest__main:focus-visible{outline:3px solid var(--yellow);outline-offset:-3px}
+.nearest__pin{flex:none;font-size:16px;line-height:1}
+.nearest__text{min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;
+  font:700 14px/1.2 var(--body);color:#222}
+.nearest__name{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+.nearest__sep{color:#999}
+.nearest__status{display:inline-flex;align-items:center;gap:5px;font:800 13px/1.15 var(--cond);text-transform:uppercase}
+.nearest__status.is-open{color:#0F6B30}
+.nearest__status.is-closed{color:var(--red)}
+.nearest__maps{
+  flex:none;align-self:center;margin:6px 10px 6px 0;padding:8px 12px;min-height:36px;
+  border:2px solid #111;border-radius:10px;background:#fff;color:#111;text-decoration:none;
+  font:800 13px/1 var(--cond);text-transform:uppercase;display:inline-flex;align-items:center;
+}
+.nearest__maps:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+
+/* —— vitrină vedetă —— */
+.feat{margin:28px 0 8px}
+.feat__band{
+  margin:0 0 12px;padding:10px 14px;background:#C6E800;border-radius:12px;
+  box-shadow:0 3px 0 #8FA800;
+}
+.feat__title{margin:0;font:900 22px/1.1 var(--cond);text-transform:uppercase;letter-spacing:.02em;color:#1B5E20}
+.feat__scroller{
+  display:flex;gap:14px;overflow-x:auto;padding:4px 4px 16px;
+  scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+}
+.feat__scroller:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.feat__card{
+  flex:0 0 72%;max-width:240px;scroll-snap-align:start;min-width:0;
+}
+.feat__link{
+  display:flex;flex-direction:column;
+  text-decoration:none;color:inherit;
+  background:#fff;border-radius:16px;border:2px solid #E2E4EA;
+  box-shadow:0 6px 18px rgba(0,0,0,.1);overflow:hidden;
+}
+.feat__link:focus-visible{outline:3px solid var(--yellow);outline-offset:3px}
+.feat__cell-wrap{
+  width:100%;flex:none;
+  container-type:inline-size;container-name:featcell;
+}
+.feat__from{
+  margin:0;padding:10px 14px 12px;border-top:1px solid #EEE;
+  font:600 13px/1.25 var(--body);color:#555;flex:none;
+}
+
+/*
+  Card vitrină: ProductCell pe coloană (poză → text → preț),
+  fără pozițiile absolute din foaia de revistă.
+*/
+.feat__cell-wrap .mag-cell{
+  width:100%;height:auto;
+  display:flex;flex-direction:column;align-items:stretch;
+  padding:0;overflow:visible;background:#fff;
+}
+.feat__cell-wrap .mag-cell__img{
+  flex:none;height:168px;min-height:168px;max-height:168px;
+  padding:12px 16px 4px;margin:0;order:1;
+  background:linear-gradient(180deg,#FAFBFC 0%,#fff 72%);
+}
+.feat__cell-wrap .mag-cell__img-slot{
+  transform:none!important;width:100%;height:100%;
+}
+.feat__cell-wrap .mag-cell__img img{
+  width:100%;height:100%;object-fit:contain;object-position:center bottom;
+}
+.feat__cell-wrap .mag-cell__noimg{font-size:16px}
+
+.feat__cell-wrap .mag-cell__text{
+  position:static!important;left:auto!important;top:auto!important;
+  order:2;z-index:1;zoom:1!important;
+  width:100%!important;max-width:100%!important;
+  padding:10px 14px 0;margin:0;text-align:left;
+  pointer-events:none;
+}
+.feat__cell-wrap .mag-cell--price-left .mag-cell__text{text-align:left}
+.feat__cell-wrap .mag-cell__brand{
+  font-size:22px;line-height:1.1;letter-spacing:.01em;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;
+}
+.feat__cell-wrap .mag-cell__title{
+  margin:4px 0 0;font-size:15px;line-height:1.3;font-weight:600;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
+}
+.feat__cell-wrap .mag-cell__detail{
+  margin:4px 0 0;font-size:13px;line-height:1.3;color:#555;
+}
+.feat__cell-wrap .mag-cell__detail--unit{font-size:12px;color:#777}
+
+.feat__cell-wrap .mag-cell__price{
+  position:static!important;left:auto!important;top:auto!important;
+  order:3;z-index:1;zoom:1!important;
+  width:100%!important;max-width:100%!important;
+  align-items:flex-start;text-align:left;
+  padding:10px 14px 6px;margin:0;
+  pointer-events:none;
+}
+.feat__cell-wrap .mag-cell--price-left .mag-cell__price{align-items:flex-start;text-align:left}
+.feat__cell-wrap .mag-cell__badge-row{
+  justify-content:flex-start;gap:8px;margin-bottom:2px;width:100%;
+}
+.feat__cell-wrap .mag-cell__badge{
+  font-size:14px;padding:5px 8px;border-radius:8px;
+}
+.feat__cell-wrap .mag-cell__badge--special{font-size:13px}
+.feat__cell-wrap .mag-cell__was{
+  font-size:16px;text-decoration-thickness:2px;
+}
+.feat__cell-wrap .mag-cell__now{justify-content:flex-start;line-height:.9}
+.feat__cell-wrap .mag-cell__lei{font-size:40px}
+.feat__cell-wrap .mag-cell__ban{font-size:20px;margin-top:.08em}
+
+@media (min-width:768px){
+  .feat__card{flex-basis:34%;max-width:260px}
+  .feat__cell-wrap .mag-cell__img{height:180px;min-height:180px;max-height:180px}
+  .feat__title{font-size:26px}
+  .feat__cell-wrap .mag-cell__lei{font-size:44px}
+  .nearest__text{font-size:15px}
+  .nearest__name{max-width:none}
+}

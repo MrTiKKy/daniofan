@@ -9,6 +9,7 @@ import type { FormatKey } from '@/lib/social';
 import { drawQR } from '@/lib/qr';
 import { download, num, processImage } from '@/lib/image';
 import type { LocalStats, OfferData, Product } from '@/lib/types';
+import BrandLogo from '@/components/BrandLogo';
 import MagazineBuilder from '@/components/builder/MagazineBuilder';
 import type { CatalogPage } from '@/lib/catalogTypes';
 import {
@@ -16,6 +17,10 @@ import {
   publishMagazine,
   saveMagazineBuilderDraft,
 } from '@/lib/magazineBuilderStore';
+import {
+  getHomeMagazines,
+  saveCatalog,
+} from '@/lib/catalogStore';
 import ProductCard from './ProductCard';
 import ProductRow, { type FieldKey, type RowAction } from './ProductRow';
 import Stats from './Stats';
@@ -72,13 +77,27 @@ export default function AdminPanel() {
       if (tab !== 'constructor') setTab('constructor');
       return;
     }
-    try {
-      saveMagazineBuilderDraft(pages, activeIndex);
-      publishMagazine(pages);
-      flash('✓ Revista a fost publicată. Deschide pliantul clientului.');
-    } catch (err) {
-      flash(err instanceof Error ? err.message : 'Publicarea a eșuat.', true);
-    }
+    void (async () => {
+      try {
+        saveMagazineBuilderDraft(pages, activeIndex);
+        publishMagazine(pages);
+        /* Sync pe slotul weekend — coperta de pe home = prima foaie ca în preview */
+        const slots = await getHomeMagazines();
+        const weekend = slots.find((s) => s.kind === 'weekend')?.catalog;
+        if (weekend) {
+          await saveCatalog({
+            ...weekend,
+            status: 'published',
+            kind: 'weekend',
+            grid: withGrid[0].grid || weekend.grid,
+            pages: withGrid,
+          });
+        }
+        flash('✓ Revista a fost publicată. Deschide pliantul clientului.');
+      } catch (err) {
+        flash(err instanceof Error ? err.message : 'Publicarea a eșuat.', true);
+      }
+    })();
   }, [flash, tab]);
 
   const persist = useCallback((next: OfferData) => {
@@ -349,7 +368,7 @@ export default function AdminPanel() {
     <>
       <header className="a-top">
         <div className="a-in">
-          <div className="a-brand"><span className="mini-logo"><b>DANIOFAN</b><i>MARKET</i></span><span className="a-title">Panou angajați</span></div>
+          <div className="a-brand"><span className="mini-logo"><BrandLogo size="sm" /></span><span className="a-title">Panou angajați</span></div>
           <div className="a-top-actions">
             <button type="button" className="btn a-publish" onClick={publishRevista}>
               Publică revista
@@ -379,6 +398,14 @@ export default function AdminPanel() {
         >
           Produse
         </button>
+        <a
+          href="/admin/magazine"
+          role="tab"
+          className="a-tab"
+          id="tab-magazine"
+        >
+          Magazine
+        </a>
       </div>
 
       {tab === 'constructor' ? (
@@ -506,7 +533,7 @@ export default function AdminPanel() {
       <div className={'saved' + (saved.show ? ' show' : '') + (saved.err ? ' err' : '')} id="saved" role="status">{saved.msg}</div>
 
       <div id="poster" className="poster" aria-hidden="true">
-        <div className="logo"><span className="l1">Daniofan</span><span className="l2">Market</span></div>
+        <div className="logo brand-logo-wrap"><BrandLogo size="xl" /></div>
         <h1>Ofertele săptămânii,<br />pe telefonul dumneavoastră!</h1>
         <img ref={posterQrRef} id="poster-qr" alt="" />
         <p className="p-step">Deschideți camera telefonului și îndreptați-o spre cod.</p>

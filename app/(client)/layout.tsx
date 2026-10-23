@@ -1,13 +1,18 @@
 import type { Metadata, Viewport } from 'next';
+import PublicListChrome from '@/components/list/PublicListChrome';
 import '@/styles/fonts.css';
+import '@/styles/brand-logo.css';
 import '@/styles/flyer.css';
 import '@/styles/magazine.css';
 import '@/styles/themes.css';
+import '@/styles/home.css';
+import '@/styles/public-nav.css';
+import '@/styles/shopping-list.css';
 
-/** Title / OG vin din generateMetadata pe page.tsx (imaginea de share din Blob). */
 export const metadata: Metadata = {
   icons: {
-    icon: 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%23E30613%22/%3E%3Ctext x=%2232%22 y=%2246%22 font-size=%2240%22 font-family=%22Arial%22 font-weight=%22900%22 fill=%22%23FFE100%22 text-anchor=%22middle%22%3ED%3C/text%3E%3C/svg%3E',
+    icon: '/logo.png',
+    apple: '/logo.png',
   },
 };
 
@@ -21,7 +26,9 @@ export const viewport: Viewport = {
 export default function ClientLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ro">
-      <body>{children}</body>
+      <body>
+        <PublicListChrome>{children}</PublicListChrome>
+      </body>
     </html>
   );
 }

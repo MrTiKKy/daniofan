@@ -1,6 +1,7 @@
 /* Detalii pe casuță (ofertă) — separate de produsul din catalogul Produse. */
 import type { BoxPos, ImageLayout, PageItem, PageItemDisplay } from './catalogTypes';
 import {
+  DEFAULT_HEART_POS,
   DEFAULT_IMAGE_LAYOUT,
   DEFAULT_PRICE_POS,
   DEFAULT_PRICE_POS_LEFT,
@@ -29,6 +30,7 @@ export function snapshotDisplay(p: Product): PageItemDisplay {
     priceLeft: false,
     textPos: { ...DEFAULT_TEXT_POS },
     pricePos: { ...DEFAULT_PRICE_POS },
+    heartPos: { ...DEFAULT_HEART_POS },
   };
 }
 
@@ -40,6 +42,11 @@ export function resolveTextPos(d?: PageItemDisplay | null): BoxPos {
 export function resolvePricePos(d?: PageItemDisplay | null): BoxPos {
   if (d?.pricePos) return { scale: 1, ...d.pricePos };
   return d?.priceLeft ? { ...DEFAULT_PRICE_POS_LEFT } : { ...DEFAULT_PRICE_POS };
+}
+
+export function resolveHeartPos(d?: PageItemDisplay | null): BoxPos {
+  if (d?.heartPos) return { scale: 1, ...d.heartPos };
+  return { ...DEFAULT_HEART_POS };
 }
 
 /**

@@ -1,13 +1,23 @@
-/* Strip orizontal: spread curent + vecini (±1) lipite, deja randate. */
+/* Bandă orizontală: pagina curentă + vecini (±1) + EndPage, swipe. */
 'use client';
+import type { HomeMagazineSlot } from '@/lib/catalogStore';
 import type { Product } from '@/lib/types';
+import EndPage from './EndPage';
 import MagazinePage from './MagazinePage';
 import type { MagPage, PageTapHandlers } from './PageLayouts';
-import type { MagView } from './useFlip';
+import type { MagView } from './usePageSwipe';
+
+export interface EndPageProps {
+  title: string;
+  period: string;
+  daysLeft: number | null;
+  otherMagazine: HomeMagazineSlot | null;
+  shareUrl: string;
+  onBackToFirst: () => void;
+}
 
 interface Props {
   pages: MagPage[];
-  view: MagView;
   views: MagView[];
   viewIndex: number;
   dragProgress: number;
@@ -16,53 +26,12 @@ interface Props {
   reduced: boolean;
   handlers?: PageTapHandlers;
   allProducts?: Product[];
-}
-
-function Slot({
-  view, pages, active, eager, handlers, allProducts,
-}: {
-  view: MagView;
-  pages: MagPage[];
-  active: boolean;
-  eager: boolean;
-  handlers?: PageTapHandlers;
-  allProducts?: Product[];
-}) {
-  const alone = view.pages.length === 1;
-  const left = alone ? null : view.pages[0];
-  const right = alone ? view.pages[0] : view.pages[1];
-
-  return (
-    <div className={`mag-slot${alone ? ' mag-slot--single' : ' mag-slot--pair'}`} aria-hidden={!active}>
-      {left != null ? (
-        <MagazinePage
-          page={pages[left - 1]}
-          pageNumber={left}
-          side="left"
-          active={active}
-          eager={eager}
-          handlers={active ? handlers : undefined}
-          allProducts={allProducts}
-        />
-      ) : null}
-      {right != null ? (
-        <MagazinePage
-          page={pages[right - 1]}
-          pageNumber={right}
-          side={alone ? 'single' : 'right'}
-          active={active}
-          eager={eager}
-          handlers={active ? handlers : undefined}
-          allProducts={allProducts}
-        />
-      ) : null}
-    </div>
-  );
+  endPage?: EndPageProps | null;
 }
 
 export default function Spread({
   pages, views, viewIndex,
-  dragProgress, flipping, flipMs, reduced, handlers, allProducts,
+  dragProgress, flipping, flipMs, reduced, handlers, allProducts, endPage,
 }: Props) {
   const hasPrev = viewIndex > 0;
   const hasNext = viewIndex < views.length - 1;
@@ -92,17 +61,39 @@ export default function Spread({
           ['--mag-slide-ms' as string]: `${flipMs}ms`,
         }}
       >
-        {slots.map(({ view, index }) => (
-          <Slot
-            key={view.pages.join('-') + ':' + index}
-            view={view}
-            pages={pages}
-            active={index === viewIndex}
-            eager
-            handlers={handlers}
-            allProducts={allProducts}
-          />
-        ))}
+        {slots.map(({ view, index }) => {
+          const active = index === viewIndex;
+          if (view.end) {
+            return (
+              <div key={`end:${index}`} className="mag-slot mag-slot--single" aria-hidden={!active}>
+                {endPage ? (
+                  <EndPage
+                    title={endPage.title}
+                    period={endPage.period}
+                    daysLeft={endPage.daysLeft}
+                    otherMagazine={endPage.otherMagazine}
+                    shareUrl={endPage.shareUrl}
+                    onBackToFirst={endPage.onBackToFirst}
+                  />
+                ) : null}
+              </div>
+            );
+          }
+          const page1 = view.pages[0];
+          return (
+            <div key={`${page1}:${index}`} className="mag-slot mag-slot--single" aria-hidden={!active}>
+              <MagazinePage
+                page={pages[page1 - 1]}
+                pageNumber={page1}
+                side="single"
+                active={active}
+                eager
+                handlers={active ? handlers : undefined}
+                allProducts={allProducts}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

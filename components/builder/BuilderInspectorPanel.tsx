@@ -38,6 +38,10 @@ interface Props {
   previewOn: boolean;
   onPreview: () => void;
   onChange: (patch: Partial<PageItemDisplay>) => void;
+  /** Patch pe căsuță (ex. featured) — separat de display */
+  onItemPatch?: (patch: Partial<PageItem>) => void;
+  /** Câte căsuțe sunt deja marcate vedetă în toată revista */
+  featuredCount?: number;
   onChromeChange: (patch: Partial<PageChrome>) => void;
   onAddMessage: () => void;
   onMessageChange: (patch: { text?: string; design?: Partial<PageItemDesign> }) => void;
@@ -62,7 +66,8 @@ function parsePrice(raw: string): number {
 }
 
 export default function BuilderInspectorPanel({
-  item, baseProduct, display, page, canPreview, previewOn, onPreview, onChange, onChromeChange,
+  item, baseProduct, display, page, canPreview, previewOn, onPreview, onChange, onItemPatch,
+  featuredCount = 0, onChromeChange,
   onAddMessage, onMessageChange, onRemoveMessage, onClose,
 }: Props) {
   const [tab, setTab] = useState<InspectorTab>('product');
@@ -190,6 +195,23 @@ export default function BuilderInspectorPanel({
             ) : (
               <>
                 <p className="bi-panel__note">Doar în această ofertă — nu schimbă produsul din tab-ul Produse.</p>
+
+                <div className="bi-section">
+                  <label className="bi-featured">
+                    <input
+                      type="checkbox"
+                      checked={!!item.featured}
+                      onChange={(e) => onItemPatch?.({ featured: e.target.checked })}
+                    />
+                    <span className="bi-featured__star" aria-hidden>★</span>
+                    <span>Vedetă pe pagina de pornire</span>
+                  </label>
+                  {featuredCount > 10 ? (
+                    <p className="bi-featured__warn" role="status">
+                      Ai marcat {featuredCount} produse vedetă — ideal sunt cel mult 10.
+                    </p>
+                  ) : null}
+                </div>
 
                 <div className="bi-section">
                   <h3>Text</h3>

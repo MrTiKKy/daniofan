@@ -1,0 +1,39 @@
+/* Logo Daniofan Market (public/logo.png) */
+.brand-logo{
+  display:block;width:auto;height:auto;max-width:100%;object-fit:contain;
+  /* păstrează proporția 1300×408 */
+  aspect-ratio:1300 / 408;
+}
+.brand-logo--sm{height:40px;width:auto}
+.brand-logo--md{height:52px;width:auto}
+.brand-logo--lg{height:72px;width:auto}
+.brand-logo--xl{height:96px;width:auto}
+.brand-logo--fluid{width:min(78%,48cqw);height:auto;margin-inline:auto}
+
+/* antet public */
+.home-header__logo{
+  display:flex;align-items:center;text-decoration:none;
+  background:#fff;border-radius:8px;padding:4px 8px;line-height:0;
+}
+.home-header__logo .brand-logo{height:36px;width:auto}
+
+/* antet admin */
+.mini-logo{
+  display:flex;align-items:center;background:#fff;border-radius:10px;padding:4px 8px;line-height:0;
+}
+.mini-logo .brand-logo{height:36px;width:auto}
+
+/* flyer / poster */
+.logo.brand-logo-wrap,.brand-logo-wrap{
+  display:flex;justify-content:center;align-items:center;margin:4px auto 8px;line-height:0;
+}
+.logo.brand-logo-wrap .brand-logo,
+.brand-logo-wrap .brand-logo{height:auto;width:min(92%,420px)}
+.poster .brand-logo-wrap .brand-logo{width:min(90%,360px)}
+
+/* foaie revistă — copertă / spate */
+.mag-cover__logo,.mag-back__brand-logo{
+  display:flex;justify-content:center;align-items:center;line-height:0;margin:.6cqw auto 0;
+}
+.mag-cover__logo .brand-logo{width:min(78%,48cqw);height:auto}
+.mag-back__brand-logo .brand-logo{width:min(70%,40cqw);height:auto}

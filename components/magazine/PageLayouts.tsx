@@ -1,10 +1,11 @@
 /* Machete fixe + căsuțe produs interactive (tap → modal). */
 'use client';
 import * as DF from '@/lib/store';
-import type { CatalogPage } from '@/lib/catalogTypes';
+import { DEFAULT_GRID, type CatalogPage, type MagazineKind } from '@/lib/catalogTypes';
 import type { OfferData, Product, ResolvedOffer, StoreInfo } from '@/lib/types';
 import type { ThemeKey } from '@/lib/themes';
-import { CartIcon, PhoneIcon, PinIcon } from '@/components/icons';
+import BrandLogo from '@/components/BrandLogo';
+import { PhoneIcon, PinIcon } from '@/components/icons';
 import CatalogPageSheet, { catalogPageProducts } from './CatalogPageSheet';
 import ProductCell from './ProductCell';
 
@@ -22,21 +23,33 @@ export function buildCatalogMagazinePages(
   catalogPages: CatalogPage[],
   products: Product[],
 ): MagPage[] {
-  return catalogPages
-    .filter((p) => !!p.grid)
-    .map((page) => ({
+  return catalogPages.map((page) => {
+    const withGrid = page.grid ? page : { ...page, grid: DEFAULT_GRID };
+    return {
       kind: 'catalog' as const,
-      page,
-      products: catalogPageProducts(page, products),
-    }));
+      page: withGrid,
+      products: catalogPageProducts(withGrid, products),
+    };
+  });
 }
 
 export type PageTapHandlers = {
   onProduct?: (p: Product) => void;
   highlightId?: string | null;
+  showHeart?: boolean;
+  magazineType?: MagazineKind;
 };
 
 type LayoutOpts = PageTapHandlers & { eager?: boolean };
+
+function heartProps(opts: LayoutOpts | undefined, productId: string) {
+  if (!opts?.showHeart || !opts.magazineType) return {};
+  return {
+    showHeart: true as const,
+    slotId: productId,
+    magazineType: opts.magazineType,
+  };
+}
 
 export function buildMagazinePages(data: OfferData, at: Date): MagPage[] {
   const offer = DF.resolveOffer(data, at);
@@ -85,42 +98,12 @@ export function pageProductIds(page: MagPage): string[] {
   return pageProducts(page).map((p) => p.id);
 }
 
-/** 1-based page number for product id */
-export function findProductPage(pages: MagPage[], productId: string): number {
-  const i = pages.findIndex((p) => pageProductIds(p).includes(productId));
-  return i < 0 ? 1 : i + 1;
-}
-
-export function stripDiacritics(s: string): string {
-  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-}
-
-export type SearchHit = { product: Product; page: number };
-
-export function searchProducts(pages: MagPage[], query: string): SearchHit[] {
-  const q = stripDiacritics(query.trim());
-  if (!q) return [];
-  const out: SearchHit[] = [];
-  const seen = new Set<string>();
-  pages.forEach((page, i) => {
-    pageProducts(page).forEach((p) => {
-      if (seen.has(p.id)) return;
-      if (stripDiacritics(p.name).includes(q) || stripDiacritics(p.size).includes(q)) {
-        seen.add(p.id);
-        out.push({ product: p, page: i + 1 });
-      }
-    });
-  });
-  return out;
-}
-
 function CoverLayout({ page, opts }: { page: Extract<MagPage, { kind: 'cover' }>; opts?: LayoutOpts }) {
   const [small, big] = DF.splitTitle(page.offer.title);
   return (
     <div className="mag-layout mag-layout--cover">
-      <div className="mag-cover__logo" role="img" aria-label="Daniofan Market">
-        <span className="mag-cover__l1">Daniofan</span>
-        <span className="mag-cover__l2">Market<span className="mag-cover__cart"><CartIcon /></span></span>
+      <div className="mag-cover__logo">
+        <BrandLogo fluid />
       </div>
       <div className="mag-cover__title">
         {small ? <span className="mag-cover__t-small">{small}</span> : null}
@@ -133,7 +116,16 @@ function CoverLayout({ page, opts }: { page: Extract<MagPage, { kind: 'cover' }>
         </div>
       ) : null}
       {page.hero
-        ? <ProductCell p={page.hero} variant="hero" eager={opts?.eager} onProduct={opts?.onProduct} highlight={opts?.highlightId === page.hero.id} />
+        ? (
+          <ProductCell
+            p={page.hero}
+            variant="hero"
+            eager={opts?.eager}
+            onProduct={opts?.onProduct}
+            highlight={opts?.highlightId === page.hero.id}
+            {...heartProps(opts, page.hero.id)}
+          />
+        )
         : <p className="mag-cover__soon">Ofertele noi apar în curând</p>}
     </div>
   );
@@ -142,10 +134,25 @@ function CoverLayout({ page, opts }: { page: Extract<MagPage, { kind: 'cover' }>
 function Hero4Layout({ page, opts }: { page: Extract<MagPage, { kind: 'hero4' }>; opts?: LayoutOpts }) {
   return (
     <div className="mag-layout mag-layout--hero4">
-      <ProductCell p={page.hero} variant="hero" eager={opts?.eager} onProduct={opts?.onProduct} highlight={opts?.highlightId === page.hero.id} />
+      <ProductCell
+        p={page.hero}
+        variant="hero"
+        eager={opts?.eager}
+        onProduct={opts?.onProduct}
+        highlight={opts?.highlightId === page.hero.id}
+        {...heartProps(opts, page.hero.id)}
+      />
       <div className="mag-layout__grid4">
         {page.others.map((p) => (
-          <ProductCell key={p.id} p={p} variant="sm" eager={opts?.eager} onProduct={opts?.onProduct} highlight={opts?.highlightId === p.id} />
+          <ProductCell
+            key={p.id}
+            p={p}
+            variant="sm"
+            eager={opts?.eager}
+            onProduct={opts?.onProduct}
+            highlight={opts?.highlightId === p.id}
+            {...heartProps(opts, p.id)}
+          />
         ))}
       </div>
     </div>
@@ -156,7 +163,15 @@ function GridLayout({ products, cols, opts }: { products: Product[]; cols: 4 | 6
   return (
     <div className={`mag-layout mag-layout--grid${cols}`}>
       {products.map((p) => (
-        <ProductCell key={p.id} p={p} variant={cols === 6 ? 'sm' : 'std'} eager={opts?.eager} onProduct={opts?.onProduct} highlight={opts?.highlightId === p.id} />
+        <ProductCell
+          key={p.id}
+          p={p}
+          variant={cols === 6 ? 'sm' : 'std'}
+          eager={opts?.eager}
+          onProduct={opts?.onProduct}
+          highlight={opts?.highlightId === p.id}
+          {...heartProps(opts, p.id)}
+        />
       ))}
     </div>
   );
@@ -165,7 +180,7 @@ function GridLayout({ products, cols, opts }: { products: Product[]; cols: 4 | 6
 function BackLayout({ store }: { store: StoreInfo }) {
   return (
     <div className="mag-layout mag-layout--back">
-      <div className="mag-back__brand">Daniofan Market</div>
+      <div className="mag-back__brand-logo"><BrandLogo fluid /></div>
       <p className="mag-back__addr">{store.address}</p>
       <p className="mag-back__hours">{store.hours}</p>
       <p className="mag-back__phone">Telefon: {store.phoneLabel || store.phone}</p>

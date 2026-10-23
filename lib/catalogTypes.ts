@@ -2,6 +2,19 @@
 
 export type ThemeKey = 'standard' | 'paste' | 'craciun';
 export type CatalogStatus = 'draft' | 'published';
+
+/** Cele 2 tipuri de revistă pe pagina de pornire / viewer. */
+export type MagazineKind = 'weekend' | 'special';
+
+export const MAGAZINE_KINDS: MagazineKind[] = ['weekend', 'special'];
+
+export function magazineKindLabel(kind: MagazineKind): string {
+  return kind === 'weekend' ? 'Oferta de weekend' : 'Ofertă specială';
+}
+
+export function isMagazineKind(v: string): v is MagazineKind {
+  return v === 'weekend' || v === 'special';
+}
 export type PageItemType = 'product' | 'heading' | 'banner' | 'image' | 'text';
 export type MediaLayout = 'single' | 'side' | 'stack' | 'fan' | 'hero-small';
 
@@ -60,6 +73,8 @@ export const DEFAULT_TEXT_POS: BoxPos = { x: 0, y: 70, scale: 1 };
 export const DEFAULT_PRICE_POS: BoxPos = { x: 52, y: 64, scale: 1 };
 export const DEFAULT_TEXT_POS_LEFT: BoxPos = { x: 40, y: 70, scale: 1 };
 export const DEFAULT_PRICE_POS_LEFT: BoxPos = { x: 0, y: 64, scale: 1 };
+/** Inimioară listă — colț dreapta-sus (mutabilă în constructor) */
+export const DEFAULT_HEART_POS: BoxPos = { x: 78, y: 1, scale: 1 };
 
 /** Copie locală pe casuță — nu modifică produsul din tab-ul Produse */
 export interface PageItemDisplay {
@@ -84,6 +99,8 @@ export interface PageItemDisplay {
   textPos?: BoxPos;
   /** poziție liberă preț în chenar */
   pricePos?: BoxPos;
+  /** poziție inimioară „Lista mea” */
+  heartPos?: BoxPos;
 }
 
 export interface PageItem {
@@ -109,6 +126,8 @@ export interface PageItem {
   display?: PageItemDisplay;
   /** stil bloc mesaj (text pe fundal colorat) */
   design?: PageItemDesign;
+  /** Vedetă pe pagina de pornire (vitrină) — pe căsuță, nu pe produs */
+  featured?: boolean;
 }
 
 /** Fonturi disponibile pentru bloc mesaj */
@@ -192,6 +211,10 @@ export interface Catalog {
   status: CatalogStatus;
   grid: CatalogGrid;
   pages: CatalogPage[];
+  /** Tip pe pagina de pornire; lipsă → tratat ca weekend. */
+  kind?: MagazineKind;
+  /** Copertă opțională (URL / path); altfel se deduce din prima pagină. */
+  coverSrc?: string;
 }
 
 export type SizePresetId = 'mic' | 'lat' | 'inalt' | 'mare' | 'panoramic' | 'vedeta';

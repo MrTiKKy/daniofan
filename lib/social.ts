@@ -198,37 +198,25 @@ function holidayBand(ctx: Ctx, W: number, h: number) {
   ctx.restore();
 }
 
-/* ---------- logo (recreat, nu copiat) ---------- */
-function logoWord(ctx: Ctx, t: string, x: number, y: number, s: number, fill: string, dark: string, align: CanvasTextAlign) {
-  const font = F(900, s, true);
-  ctx.save(); ctx.font = font; ctx.textAlign = align; ctx.lineJoin = 'round';
-  ctx.strokeStyle = dark; ctx.fillStyle = dark; ctx.lineWidth = s * 0.2;
-  ctx.strokeText(t, x + s * 0.05, y + s * 0.06); ctx.fillText(t, x + s * 0.05, y + s * 0.06);
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = s * 0.17; ctx.strokeText(t, x, y);
-  ctx.fillStyle = fill; ctx.fillText(t, x, y);
-  ctx.restore();
-}
-function cart(ctx: Ctx, x: number, y: number, s: number) { // s = înălțime
-  const k = s / 52;
-  ctx.save(); ctx.translate(x, y); ctx.scale(k, k); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  const path = () => { ctx.beginPath(); ctx.moveTo(2, 6); ctx.lineTo(11, 6); ctx.lineTo(18, 34); ctx.lineTo(50, 34); ctx.lineTo(56, 14); ctx.lineTo(16, 14); };
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 11; path(); ctx.stroke();
-  ctx.strokeStyle = C.blue; ctx.lineWidth = 5; path(); ctx.stroke();
-  ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(20, 20); ctx.lineTo(53, 20); ctx.moveTo(22, 27); ctx.lineTo(50, 27); ctx.stroke();
-  ([[24, C.red], [46, C.yellowDeep]] as const).forEach(([cx, col]) => { ctx.beginPath(); ctx.arc(cx, 44, 6.5, 0, 7); ctx.fillStyle = '#fff'; ctx.fill(); ctx.beginPath(); ctx.arc(cx, 44, 5, 0, 7); ctx.fillStyle = col; ctx.fill(); });
-  ctx.restore();
-}
-function logo(ctx: Ctx, cx: number, top: number, width: number) { // întoarce y-ul de jos
-  const s1 = fit(ctx, 'DANIOFAN', (s) => F(900, s, true), width * 0.9, 200);
-  const y1 = top + s1 * 0.78;
-  logoWord(ctx, 'DANIOFAN', cx, y1, s1, C.blue, C.blueDark, 'center');
-  const s2 = s1 * 0.86;
-  ctx.font = F(900, s2, true);
-  const mw = ctx.measureText('MARKET').width, cw = s2 * 0.95, total = mw + cw + s2 * 0.08;
-  const y2 = y1 + s2 * 0.86;
-  logoWord(ctx, 'MARKET', cx - total / 2, y2, s2, C.red, '#7a0008', 'left');
-  cart(ctx, cx - total / 2 + mw + s2 * 0.08, y2 - s2 * 0.78, s2 * 0.8);
-  return y2 + s2 * 0.18;
+/* ---------- logo magazin (public/logo.png) ---------- */
+const BRAND_LOGO_PATH = '/logo.png';
+const BRAND_LOGO_RATIO = 1300 / 408;
+
+function logo(ctx: Ctx, cx: number, top: number, width: number, img: HTMLImageElement | null) {
+  const w = Math.max(80, width);
+  const h = w / BRAND_LOGO_RATIO;
+  const x = cx - w / 2;
+  if (img) {
+    ctx.drawImage(img, x, top, w, h);
+  } else {
+    /* fallback text dacă poza nu se încarcă */
+    text(ctx, 'DANIOFAN MARKET', cx, top + h * 0.65, {
+      font: F(900, Math.min(64, h * 0.55), true),
+      align: 'center',
+      color: C.blue,
+    });
+  }
+  return top + h;
 }
 
 /* ---------- titlul ofertei pe panglică roșie ---------- */
@@ -533,11 +521,12 @@ export async function render(data: OfferData, fmtKey: RenderFormatKey): Promise<
   let others = list.filter((p) => p !== hero);
   const MAX = 8; const hidden = Math.max(0, others.length - MAX); others = others.slice(0, MAX);
   const imgs = new Map<Product, HTMLImageElement | null>(await Promise.all(list.map(async (p) => [p, await loadImage(p.image)] as const)));
+  const brandLogo = await loadImage(BRAND_LOGO_PATH);
   const M = 24, G = 16;
 
   if (!hero) {
     background(ctx, W, H, W / 2, H / 2);
-    const b = logo(ctx, W / 2, H * 0.2, W * 0.6);
+    const b = logo(ctx, W / 2, H * 0.2, W * 0.6, brandLogo);
     title(ctx, W / 2, b + 20, W * 0.7, offer, 1.3);
     text(ctx, 'Ofertele noi apar în curând', W / 2, H * 0.75, { font: F(900, 70), align: 'center' });
     return canvas;
@@ -549,7 +538,7 @@ export async function render(data: OfferData, fmtKey: RenderFormatKey): Promise<
     const lx = M, mx = M + colW + 14, rx = mx + cw + 14;
     const footH = 46, bottom = H - footH - 16;
     background(ctx, W, H, W / 2, H * 0.55);
-    const lb = logo(ctx, W / 2, 20, cw + 20);
+    const lb = logo(ctx, W / 2, 20, cw + 20, brandLogo);
     const tb = title(ctx, W / 2, lb + 4, cw + 10, offer, 0.8);
     const sideH = (bottom - M - 14) / 2;
     const left = others.slice(0, 2), right = others.slice(2, 4);
@@ -567,11 +556,11 @@ export async function render(data: OfferData, fmtKey: RenderFormatKey): Promise<
   let tb: number;
   if (square) { // antet compact pe un rând: logo stânga, titlu dreapta
     background(ctx, W, H, W / 2, H * 0.5);
-    const lb = logo(ctx, 270, 26, 440);
+    const lb = logo(ctx, 270, 26, 440, brandLogo);
     tb = Math.max(lb, title(ctx, 790, 18, 480, offer, 0.72));
   } else {
     background(ctx, W, H, W / 2, story ? 760 : H * 0.42);
-    const lb = logo(ctx, W / 2, topSafe, story ? 640 : 520);
+    const lb = logo(ctx, W / 2, topSafe, story ? 640 : 520, brandLogo);
     tb = title(ctx, W / 2, lb + 2, story ? 760 : 640, offer, story ? 1.25 : 1);
   }
   const areaTop = tb + 8, areaBottom = H - footH - storyFootH - (story ? 30 : 18);

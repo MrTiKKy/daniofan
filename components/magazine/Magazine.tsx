@@ -1,47 +1,77 @@
-/* Vizualizator revistă tip Lidl — design Daniofan. */
+/* Viewer: foaie + swipe + chrome + cuprins + EndPage + CoverIntro. */
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  getOtherActiveMagazine,
+  type HomeMagazineSlot,
+} from '@/lib/catalogStore';
 import {
   loadPublishedMagazine,
   MAGAZINE_PUBLISHED_EVENT,
   MAGAZINE_PUBLISHED_KEY,
 } from '@/lib/magazineBuilderStore';
-import type { CatalogPage } from '@/lib/catalogTypes';
-import * as DF from '@/lib/store';
-import type { OfferData, Product } from '@/lib/types';
-import ProductModal from './ProductModal';
-import SearchPanel from './SearchPanel';
+import type { CatalogPage, MagazineKind } from '@/lib/catalogTypes';
+import type { OfferData } from '@/lib/types';
+import { collapseAllSteppers } from '@/components/list/ActiveStepperContext';
+import CoverIntro, { urlHasExplicitPagina } from './CoverIntro';
+import PagesSheet from './PagesSheet';
 import Spread from './Spread';
-import TocPanel from './TocPanel';
-import { buildCatalogMagazinePages, buildMagazinePages, pageProductIds, type MagPage } from './PageLayouts';
-import { useFlip } from './useFlip';
-import { useZoom } from './useZoom';
+import SwipeHint from './SwipeHint';
+import ViewerTopBar from './ViewerTopBar';
+import { buildCatalogMagazinePages, buildMagazinePages } from './PageLayouts';
+import { usePageSwipe } from './usePageSwipe';
 
 interface Props {
   data: OfferData;
   at: Date;
+  catalogPages?: CatalogPage[] | null;
+  initialHighlightId?: string | null;
+  title?: string;
+  period?: string;
+  showChrome?: boolean;
+  /** Tipul revistei — pentru intro session + cealaltă revistă */
+  kind?: MagazineKind;
+  /** Sfârșitul ofertei (pentru banda „Mai sunt X zile”) */
+  offerEnd?: Date | null;
 }
 
-function Chevron({ dir }: { dir: 'left' | 'right' }) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      {dir === 'left'
-        ? <path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        : <path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
-    </svg>
-  );
+const JUMP_FADE_MS = 200;
+
+function daysLeftInclusive(end: Date, now: Date): number {
+  const e = new Date(end);
+  e.setHours(23, 59, 59, 999);
+  const n = new Date(now);
+  n.setHours(0, 0, 0, 0);
+  const startOfEnd = new Date(e);
+  startOfEnd.setHours(0, 0, 0, 0);
+  return Math.round((startOfEnd.getTime() - n.getTime()) / 86400000);
 }
 
-function pageLink(page1: number): string {
-  const url = new URL(window.location.href);
-  url.searchParams.set('pagina', String(page1));
-  return url.toString();
-}
+type JumpTarget = number | 'final';
 
-export default function Magazine({ data, at }: Props) {
+export default function Magazine({
+  data, at, catalogPages, initialHighlightId,
+  title, period, showChrome, kind, offerEnd,
+}: Props) {
   const [publishedPages, setPublishedPages] = useState<CatalogPage[] | null>(null);
+  const [peeking, setPeeking] = useState(false);
+  const [pagesOpen, setPagesOpen] = useState(false);
+  const [jumpFade, setJumpFade] = useState(false);
+  const [otherMag, setOtherMag] = useState<HomeMagazineSlot | null>(null);
+  const [shareUrl, setShareUrl] = useState('');
+  const [introDone, setIntroDone] = useState(false);
+  const [introEnabled] = useState(() => {
+    if (!showChrome || !kind) return false;
+    if (typeof window === 'undefined') return false;
+    return !urlHasExplicitPagina();
+  });
+  const fadeTimer = useRef(0);
+  const pendingJump = useRef<JumpTarget | null>(null);
+  const useOverride = catalogPages !== undefined;
+  const chrome = !!showChrome;
 
   useEffect(() => {
+    if (useOverride) return;
     const refresh = () => {
       const pub = loadPublishedMagazine();
       setPublishedPages(pub?.pages?.length ? pub.pages : null);
@@ -56,237 +86,201 @@ export default function Magazine({ data, at }: Props) {
       window.removeEventListener('storage', onStorage);
       window.removeEventListener(MAGAZINE_PUBLISHED_EVENT, refresh);
     };
-  }, []);
+  }, [useOverride]);
+
+  useEffect(() => () => window.clearTimeout(fadeTimer.current), []);
+
+  useEffect(() => {
+    if (!chrome || !kind) return;
+    let alive = true;
+    void (async () => {
+      const other = await getOtherActiveMagazine(kind, at);
+      if (alive) setOtherMag(other);
+    })();
+    setShareUrl(`${window.location.origin}/revista/${kind}`);
+    return () => { alive = false; };
+  }, [chrome, kind, at]);
 
   const pages = useMemo(() => {
+    if (useOverride) {
+      if (catalogPages?.length) {
+        return buildCatalogMagazinePages(catalogPages, data.products);
+      }
+      return buildMagazinePages(data, at);
+    }
     if (publishedPages?.length) {
       return buildCatalogMagazinePages(publishedPages, data.products);
     }
     return buildMagazinePages(data, at);
-  }, [publishedPages, data, at]);
-  const offer = useMemo(() => DF.resolveOffer(data, at), [data, at]);
-  const flip = useFlip(pages.length);
-  const zoom = useZoom(flip.setZoomBlocked);
+  }, [useOverride, catalogPages, publishedPages, data, at]);
 
-  const [tocOpen, setTocOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
-  const [modalProduct, setModalProduct] = useState<Product | null>(null);
-  const [highlightId, setHighlightId] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
-  const tracked = useRef(new Set<string>());
-  const highlightT = useRef(0);
-  const stageRef = useRef<HTMLDivElement>(null);
+  const swipe = usePageSwipe(pages.length, chrome);
+  const { goToPage, goToEnd, reduced, isEnd, pageCount } = swipe;
 
-  /* reset zoom la răsfoire */
+  const daysLeft = useMemo(() => {
+    if (!offerEnd) return null;
+    return daysLeftInclusive(offerEnd, at);
+  }, [offerEnd, at]);
+
+  const onUserGesture = swipe.onUserGesture;
+  const dismissHint = useCallback(() => {}, []);
+  const openPages = useCallback(() => {
+    collapseAllSteppers();
+    setPagesOpen(true);
+  }, []);
+  const closePages = useCallback(() => setPagesOpen(false), []);
+
+  /* swipe / schimbare pagină → strânge HeartStepper */
   useEffect(() => {
-    zoom.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flip.viewIndex]);
+    return onUserGesture(() => collapseAllSteppers());
+  }, [onUserGesture]);
 
-  /* tracking vizualizări */
+  const jumpTo = useCallback((target: JumpTarget) => {
+    pendingJump.current = target;
+    setPagesOpen(false);
+  }, []);
+
+  const jumpToPage = useCallback((page1: number) => jumpTo(page1), [jumpTo]);
+  const jumpToEnd = useCallback(() => jumpTo('final'), [jumpTo]);
+
   useEffect(() => {
-    const ids: string[] = [];
-    flip.view?.pages.forEach((p) => ids.push(...pageProductIds(pages[p - 1])));
-    const t = window.setTimeout(() => {
-      ids.forEach((id) => {
-        if (tracked.current.has(id)) return;
-        tracked.current.add(id);
-        DF.track('view', id);
-      });
-    }, 1000);
-    return () => window.clearTimeout(t);
-  }, [flip.view, pages]);
+    if (pagesOpen) return;
+    if (pendingJump.current == null) return;
 
-  const onProduct = useCallback((p: Product) => {
-    if (zoom.active) return;
-    setModalProduct(p);
-  }, [zoom.active]);
+    let applied = false;
+    const apply = () => {
+      if (applied) return;
+      const target = pendingJump.current;
+      if (target == null) return;
+      applied = true;
+      pendingJump.current = null;
+      if (target === 'final') goToEnd();
+      else goToPage(target);
+      if (reduced) return;
+      setJumpFade(true);
+      window.clearTimeout(fadeTimer.current);
+      fadeTimer.current = window.setTimeout(() => setJumpFade(false), JUMP_FADE_MS);
+    };
 
-  const jumpHighlight = useCallback((page1: number, productId?: string) => {
-    flip.jumpToPage(page1);
-    if (productId) {
-      setHighlightId(productId);
-      window.clearTimeout(highlightT.current);
-      highlightT.current = window.setTimeout(() => setHighlightId(null), 2000);
-    }
-  }, [flip]);
+    const onPop = () => { queueMicrotask(apply); };
+    window.addEventListener('popstate', onPop);
+    const fallback = window.setTimeout(apply, 100);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.clearTimeout(fallback);
+    };
+  }, [pagesOpen, goToPage, goToEnd, reduced]);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(''), 2200);
-  };
+  const backToFirst = useCallback(() => {
+    goToPage(1);
+    if (reduced) return;
+    setJumpFade(true);
+    window.clearTimeout(fadeTimer.current);
+    fadeTimer.current = window.setTimeout(() => setJumpFade(false), JUMP_FADE_MS);
+  }, [goToPage, reduced]);
 
-  const sharePage = flip.view?.pages[0] ?? 1;
-  const shareUrl = typeof window !== 'undefined' ? pageLink(sharePage) : '';
+  const onIntroDone = useCallback(() => setIntroDone(true), []);
 
-  const doShare = async (kind: 'native' | 'wa' | 'fb' | 'copy') => {
-    const url = pageLink(sharePage);
-    const title = `${offer.title} — Daniofan Market`;
-    setShareOpen(false);
-    if (kind === 'native' && typeof navigator.share === 'function') {
-      try { await navigator.share({ title, url }); } catch { /* anulat */ }
-      return;
-    }
-    if (kind === 'wa') {
-      window.open('https://wa.me/?text=' + encodeURIComponent(title + ' ' + url), '_blank', 'noopener');
-      return;
-    }
-    if (kind === 'fb') {
-      window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url), '_blank', 'noopener');
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('Link copiat');
-    } catch {
-      showToast('Nu s-a putut copia');
-    }
-  };
+  /* Dacă intro-ul e dezactivat, consideră-l gata imediat */
+  useEffect(() => {
+    if (!introEnabled) setIntroDone(true);
+  }, [introEnabled]);
 
-  const openShare = () => {
-    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function' && /Mobi|Android|iPhone/i.test(navigator.userAgent)) {
-      void doShare('native');
-      return;
-    }
-    setShareOpen((v) => !v);
-  };
+  const hintActive = chrome && pageCount > 1 && !isEnd && introDone;
 
-  /* pointer: flip pe zonă goală; zoom pe dublu-tap (useZoom) — combinăm fără conflict pe drag */
-  const onStagePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (zoom.active) zoom.handlers.onPointerDown(e);
-    else flip.handlers.onPointerDown(e);
-  };
-  const onStagePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (zoom.active) zoom.handlers.onPointerMove(e);
-    else flip.handlers.onPointerMove(e);
-  };
-  const onStagePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (zoom.active) zoom.handlers.onPointerUp(e);
-    else {
-      flip.handlers.onPointerUp();
-      zoom.handlers.onPointerUp(e);
-    }
-  };
-
-  const tocWide = tocOpen;
-
-  return (
-    <section className={'mag' + (tocWide ? ' mag--toc-open' : '')} aria-label="Revista ofertelor">
-      <div className="mag__bar" role="toolbar" aria-label="Controale revistă">
-        <div className="mag__bar-in">
-          <span className="mag__bar-spacer" aria-hidden />
-          <button type="button" className="mag__counter" onClick={() => { setTocOpen(true); setSearchOpen(false); }}>
-            {flip.label || '…'}
-          </button>
-          <div className="mag__bar-actions">
-            <button type="button" className="mag__tool" onClick={() => { setSearchOpen(true); setTocOpen(false); }}>Caută</button>
-            <button type="button" className="mag__tool" onClick={() => { setTocOpen(true); setSearchOpen(false); }}>Cuprins</button>
-            <div className="mag__share-wrap">
-              <button type="button" className="mag__tool" onClick={openShare} aria-expanded={shareOpen}>Distribuie</button>
-              {shareOpen ? (
-                <div className="mag__share-menu" role="menu">
-                  <button type="button" role="menuitem" onClick={() => void doShare('fb')}>Facebook</button>
-                  <button type="button" role="menuitem" onClick={() => void doShare('wa')}>WhatsApp</button>
-                  <button type="button" role="menuitem" onClick={() => void doShare('copy')}>Copiază link</button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-        <div className="mag__progress" aria-hidden>
-          <div className="mag__progress-fill" style={{ width: `${Math.round(flip.progress * 100)}%` }} />
-        </div>
-      </div>
-
-      <div className="mag__workspace">
-        <div className="mag__viewport">
-          <button
-            type="button"
-            className="mag__nav mag__nav--prev"
-            aria-label="Pagina anterioară"
-            disabled={flip.viewIndex <= 0 || zoom.active}
-            onClick={flip.prev}
-          >
-            <Chevron dir="left" />
-          </button>
-
-          <div
-            className={'mag__stage' + (zoom.active ? ' is-zoomed' : '')}
-            ref={stageRef}
-            style={zoom.style}
-            onPointerDown={onStagePointerDown}
-            onPointerMove={onStagePointerMove}
-            onPointerUp={onStagePointerUp}
-            onPointerCancel={() => { flip.handlers.onPointerCancel(); zoom.handlers.onPointerCancel(); }}
-            onTouchStart={zoom.handlers.onTouchStart}
-            onTouchMove={zoom.handlers.onTouchMove}
-            onTouchEnd={zoom.handlers.onTouchEnd}
-          >
-            {flip.view ? (
-              <Spread
-                pages={pages}
-                view={flip.view}
-                views={flip.views}
-                viewIndex={flip.viewIndex}
-                dragProgress={flip.dragProgress}
-                flipping={flip.flipping}
-                flipMs={flip.flipMs}
-                reduced={flip.reduced}
-                handlers={{ onProduct, highlightId }}
-                allProducts={data.products}
-              />
-            ) : null}
-          </div>
-
-          <button
-            type="button"
-            className="mag__nav mag__nav--next"
-            aria-label="Pagina următoare"
-            disabled={flip.viewIndex >= flip.viewCount - 1 || zoom.active}
-            onClick={flip.next}
-          >
-            <Chevron dir="right" />
-          </button>
-        </div>
-
-        {zoom.active ? (
-          <button type="button" className="mag__zoom-close" onClick={zoom.reset}>Închide zoom</button>
-        ) : null}
-      </div>
-
-      <TocPanel
-        open={tocOpen}
-        pages={pages}
-        views={flip.views}
-        viewIndex={flip.viewIndex}
-        onClose={() => setTocOpen(false)}
-        onJump={(p) => jumpHighlight(p)}
-        allProducts={data.products}
-      />
-      <SearchPanel
-        open={searchOpen}
-        pages={pages}
-        onClose={() => setSearchOpen(false)}
-        onJump={(p, id) => jumpHighlight(p, id)}
-      />
-
-      {modalProduct ? (
-        <ProductModal
-          product={modalProduct}
-          data={data}
-          offer={offer}
-          pageUrl={shareUrl || pageLink(findPageOf(pages, modalProduct.id))}
-          onClose={() => setModalProduct(null)}
+  const stage = (
+    <div
+      className={
+        'mag__stage'
+        + (peeking && !reduced ? ' is-peek' : '')
+        + (swipe.dragProgress !== 0 || swipe.flipping ? ' is-dragging' : '')
+        + (jumpFade ? ' is-jump-fade' : '')
+      }
+      onPointerDown={swipe.handlers.onPointerDown}
+      onPointerMove={swipe.handlers.onPointerMove}
+      onPointerUp={swipe.handlers.onPointerUp}
+      onPointerCancel={swipe.handlers.onPointerCancel}
+    >
+      {swipe.view ? (
+        <Spread
+          pages={pages}
+          views={swipe.views}
+          viewIndex={swipe.viewIndex}
+          dragProgress={swipe.dragProgress}
+          flipping={swipe.flipping}
+          flipMs={swipe.flipMs}
+          reduced={reduced}
+          handlers={{
+            highlightId: initialHighlightId ?? null,
+            showHeart: chrome && !!kind,
+            magazineType: kind,
+          }}
+          allProducts={data.products}
+          endPage={chrome ? {
+            title: title || 'Revista',
+            period: period || '',
+            daysLeft,
+            otherMagazine: otherMag,
+            shareUrl,
+            onBackToFirst: backToFirst,
+          } : null}
         />
       ) : null}
 
-      {toast ? <div className="mag__toast" role="status">{toast}</div> : null}
+      {chrome ? (
+        <SwipeHint
+          active={hintActive}
+          reducedMotion={reduced}
+          onDismiss={dismissHint}
+          onPeekChange={setPeeking}
+          registerGesture={onUserGesture}
+        />
+      ) : null}
+    </div>
+  );
+
+  return (
+    <section
+      className={'mag' + (chrome ? ' mag--chrome' : '')}
+      aria-label="Revista ofertelor"
+      data-highlight={initialHighlightId || undefined}
+    >
+      {chrome ? (
+        <ViewerTopBar
+          title={title || 'Revista'}
+          period={period || ''}
+          page={isEnd ? pageCount : swipe.page}
+          pageCount={pageCount}
+          isEnd={isEnd}
+          onGoToPage={goToPage}
+          onOpenPages={openPages}
+        />
+      ) : null}
+
+      {chrome && kind && introEnabled ? (
+        <CoverIntro
+          kind={kind}
+          enabled={introEnabled}
+          reducedMotion={reduced}
+          onDone={onIntroDone}
+        >
+          {stage}
+        </CoverIntro>
+      ) : stage}
+
+      {chrome ? (
+        <PagesSheet
+          open={pagesOpen}
+          onClose={closePages}
+          title={title || 'Revista'}
+          pages={pages}
+          currentPage={isEnd ? pageCount : swipe.page}
+          isOnEnd={isEnd}
+          allProducts={data.products}
+          onSelectPage={jumpToPage}
+          onSelectEnd={jumpToEnd}
+        />
+      ) : null}
     </section>
   );
-}
-
-function findPageOf(pages: MagPage[], id: string): number {
-  const i = pages.findIndex((p) => pageProductIds(p).includes(id));
-  return i < 0 ? 1 : i + 1;
 }

@@ -1,6 +1,6 @@
 /* Foaie din constructor — același aspect ca preview (fără chrome de editare). */
 'use client';
-import type { CatalogPage } from '@/lib/catalogTypes';
+import type { CatalogPage, MagazineKind } from '@/lib/catalogTypes';
 import { isMessageItem } from '@/lib/messageBlock';
 import {
   pageHeaderClass,
@@ -10,6 +10,7 @@ import {
   displayAsProduct,
   displayImages,
   normalizeImageLayouts,
+  resolveHeartPos,
   resolvePricePos,
   resolveTextPos,
 } from '@/lib/pageItemDisplay';
@@ -20,6 +21,8 @@ import ProductCell from './ProductCell';
 export type CatalogPageHandlers = {
   onProduct?: (p: Product) => void;
   highlightId?: string | null;
+  showHeart?: boolean;
+  magazineType?: MagazineKind;
 };
 
 interface Props {
@@ -81,6 +84,7 @@ export default function CatalogPageSheet({ page, products, handlers, eager }: Pr
             const cellVariant = (item.w * item.h >= 4 || grid.cols <= 2) ? 'std' : 'sm';
             const textPos = resolveTextPos(item.display);
             const pricePos = resolvePricePos(item.display);
+            const heartPos = resolveHeartPos(item.display);
 
             return (
               <div
@@ -105,8 +109,15 @@ export default function CatalogPageSheet({ page, products, handlers, eager }: Pr
                     priceLeft={!!item.display?.priceLeft}
                     textPos={textPos}
                     pricePos={pricePos}
+                    heartPos={heartPos}
                     onProduct={handlers?.onProduct}
-                    highlight={handlers?.highlightId === view.id}
+                    highlight={
+                      handlers?.highlightId === item.id
+                      || handlers?.highlightId === view.id
+                    }
+                    showHeart={!!handlers?.showHeart && !!handlers?.magazineType}
+                    slotId={item.id}
+                    magazineType={handlers?.magazineType}
                   />
                 ) : null}
               </div>

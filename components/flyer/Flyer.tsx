@@ -4,7 +4,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as DF from '@/lib/store';
 import type { OfferData, Product, ResolvedOffer } from '@/lib/types';
-import { CartIcon, ClockIcon, PhoneIcon, PinIcon, WhatsappIcon } from '@/components/icons';
+import BrandLogo from '@/components/BrandLogo';
+import { ClockIcon, PhoneIcon, PinIcon, WhatsappIcon } from '@/components/icons';
 import Magazine from '@/components/magazine/Magazine';
 import { HolidayBand, HolidayBg, Snowfall } from './HolidayDecor';
 
@@ -86,9 +87,8 @@ export default function Flyer() {
         <div className="burst-bg"></div>
         <HolidayBg theme={data?.offer.theme} />
         <div className="wrap">
-          <div className="logo" role="img" aria-label="Daniofan Market">
-            <span className="l1">Daniofan</span>
-            <span className="l2">Market<span className="cart"><CartIcon /></span></span>
+          <div className="logo brand-logo-wrap">
+            <BrandLogo size="xl" />
           </div>
           <div>
             <h1 className="title"><span className="rays l"><i></i><i></i><i></i></span><span className="rays r"><i></i><i></i><i></i></span>
@@ -109,7 +109,7 @@ export default function Flyer() {
       </main>
 
       <footer className="wrap foot">
-        <h2>Daniofan Market</h2>
+        <div className="brand-logo-wrap foot__logo"><BrandLogo size="md" /></div>
         <p className="addr" id="addr">{data?.store.address}</p>
         <p id="hours">{data?.store.hours}</p>
         <p>Telefon: <a id="foot-call" href={data ? 'tel:' + data.store.phone : '#'} onClick={() => DF.track('calls')}>{data ? (data.store.phoneLabel || data.store.phone) : ''}</a></p>

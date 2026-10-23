@@ -1,0 +1,24 @@
+/* Placeholder temporar — panoul clientului se redesign-uiește */
+.client-wip{
+  min-height:100dvh;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:32px 20px;text-align:center;background:#F3F4F7;color:#111;
+  font-family:var(--body, system-ui, sans-serif);
+}
+.client-wip__brand{
+  margin:0;font-family:var(--cond, Impact, sans-serif);font-weight:900;font-style:italic;
+  font-size:clamp(28px,6vw,40px);line-height:.9;text-transform:uppercase;
+}
+.client-wip__brand span{display:block;color:var(--blue,#0A2A82)}
+.client-wip__brand i{display:block;font-style:italic;color:var(--red,#E30613)}
+.client-wip h1{
+  margin:8px 0 0;font-family:var(--cond, Impact, sans-serif);font-weight:900;
+  font-size:clamp(36px,8vw,56px);text-transform:uppercase;letter-spacing:.02em;
+}
+.client-wip p{margin:0;max-width:28em;font-size:18px;line-height:1.4;color:#555}
+.client-wip__btn{
+  display:inline-flex;align-items:center;justify-content:center;margin-top:16px;
+  min-height:52px;padding:10px 22px;border:2px solid #111;border-radius:12px;
+  background:var(--yellow,#FFE100);color:#111;font:800 18px/1.1 var(--cond, Impact, sans-serif);
+  text-transform:uppercase;text-decoration:none;box-shadow:0 4px 0 #c9a400;
+}
+.client-wip__btn:hover{filter:brightness(1.04)}

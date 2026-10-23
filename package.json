@@ -7,6 +7,7 @@
     "build": "node scripts/download-u2netp.mjs && next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "tsx --test lib/storeHours.test.ts lib/featured.test.ts lib/shoppingList.test.ts",
     "download-u2net": "node scripts/download-u2net.mjs",
     "download-u2netp": "node scripts/download-u2netp.mjs"
   },
@@ -29,6 +30,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   },
   "description": "Daniofan Market — pliant digital (prototip MVP, EDGE), port Next.js",
