@@ -1,4 +1,4 @@
-/* Magazine fizice + setări contact (Faza 2) — pregătit pentru Neon. */
+/* Magazine fizice + setări contact (Faza 2) — pregătit pentru Postgres. */
 
 export type WeekdayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 

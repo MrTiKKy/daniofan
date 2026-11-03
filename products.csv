@@ -1,0 +1,101 @@
+id,brand,name,details,unit,unit_qty,normal_price,category,image_filename
+ciucas-bere-0-33l,Ciucaș,Bere blondă sticlă,Bere lager românească,L,0.33,3.49,Băuturi,ciucas-bere-0-33l.jpg
+ciucas-bere-2-5l,Ciucaș,Bere PET 2.5L,Bere blondă la PET,L,2.5,8.99,Băuturi,ciucas-bere-2-5l.jpg
+timisoreana-bere-0-5l,Timișoreana,Bere blondă 0.5L,Bere tradițională,L,0.5,3.79,Băuturi,timisoreana-bere-0-5l.jpg
+ursus-fara-alcool-0-5l,Ursus,Bere fără alcool 0.5L,Ursus 0.0%,L,0.5,3.99,Băuturi,ursus-fara-alcool-0-5l.jpg
+coca-cola-original-0-33l,Coca-Cola,Coca-Cola Original,Băutură carbogazoasă,L,0.33,3.49,Băuturi,coca-cola-original-0-33l.jpg
+coca-cola-zero-0-5l,Coca-Cola,Coca-Cola Zero Sugar,Fără zahăr,L,0.5,3.99,Băuturi,coca-cola-zero-0-5l.jpg
+fanta-orange-2l,Fanta,Fanta Orange 2L,Băutură cu aromă de portocală,L,2.0,7.49,Băuturi,fanta-orange-2l.jpg
+pepsi-0-33l,Pepsi,Pepsi 330ml,Băutură carbogazoasă,L,0.33,3.29,Băuturi,pepsi-0-33l.jpg
+sprite-2l,Sprite,Sprite 2L,Băutură cu aromă de lămâie-lime,L,2.0,7.49,Băuturi,sprite-2l.jpg
+red-bull-0-25l,Red Bull,Red Bull Energy Drink,Băutură energizantă 250ml,L,0.25,7.99,Băuturi,red-bull-0-25l.jpg
+napolact-lapte-3-5-1l,Napolact,Lapte 3.5% 1L,Lapte de vacă integral,L,1.0,7.49,Lactate,napolact-lapte-3-5-1l.jpg
+napolact-lapte-1-5-1l,Napolact,Lapte 1.5% 1L,Lapte semidegresat,L,1.0,6.99,Lactate,napolact-lapte-1-5-1l.jpg
+zuzu-lapte-1-5-1l,Zuzu,Lapte 1.5% 1L,Lapte semidegresat,L,1.0,6.49,Lactate,zuzu-lapte-1-5-1l.jpg
+zuzu-stors-bifidus-150g,Zuzu,Iaurt Stors Bifidus 150g,Iaurt cremos,g,150,2.79,Lactate,zuzu-stors-bifidus-150g.jpg
+hochland-cascaval-pane-150g,Hochland,Cașcaval pane 150g,Cașcaval pane,g,150,9.99,Lactate,hochland-cascaval-pane-150g.jpg
+hochland-mozzarella,Hochland,Mozzarella,Brânză mozzarella,g,125,8.49,Lactate,hochland-mozzarella.jpg
+hochland-feta-150g,Hochland,Feta oaie & capră 150g,Brânză tip feta,g,150,12.99,Lactate,hochland-feta-150g.jpg
+olympus-iaurt-grec,Olympus,Iaurt grecesc natural,Iaurt grecesc,g,150,4.49,Lactate,olympus-iaurt-grec.jpg
+olympus-iaurt-grec-1kg,Olympus,Iaurt grecesc 1kg,Authentic Greek yogurt,g,1000,18.99,Lactate,olympus-iaurt-grec-1kg.jpg
+alpro-migdale-1l,Alpro,Băutură din migdale 1L,Plant-based,L,1.0,12.99,Lactate,alpro-migdale-1l.jpg
+seven-days-croissant-ciocolata,7 Days,Croissant cu cacao 65g,Corn cu umplutură de cacao,g,65,2.49,Panificație,seven-days-croissant-ciocolata.jpg
+seven-days-croissant-choco-60g,7 Days,Croissant choco 60g,Croissant cu ciocolată,g,60,2.49,Panificație,seven-days-croissant-choco-60g.jpg
+oreo-original,Oreo,Oreo Original,Biscuiți cu cremă de vanilie,g,176,8.99,Panificație,oreo-original.jpg
+poieni-biscuiti,Poieni,Biscuiți Poieni,Biscuiți tradiționali,g,200,5.49,Panificație,poieni-biscuiti.jpg
+nutella-biscuits,Nutella,Biscuits Nutella,Biscuiți cu cremă Nutella,g,304,24.99,Panificație,nutella-biscuits.jpg
+barilla-spaghetti-n5,Barilla,Spaghetti n.5 500g,Paste din grâu dur,g,500,7.49,Panificație,barilla-spaghetti-n5.jpg
+barilla-penne-rigate,Barilla,Penne Rigate 500g,Paste penne,g,500,7.49,Panificație,barilla-penne-rigate.jpg
+harrys-mie-complet,Harrys,Pâine mie complet,Pâine feliată,g,500,9.99,Panificație,harrys-mie-complet.jpg
+barilla-arrabbiata,Barilla,Sos Arrabbiata,Sos de roșii picant,g,400,9.49,Panificație,barilla-arrabbiata.jpg
+nutella-400g,Nutella,Nutella cremă de cacao 400g,Cremă de cacao cu alune,g,400,22.99,Panificație,nutella-400g.jpg
+heidi-dark-85,Heidi,Ciocolată Dark 85%,Ciocolată neagră 85% cacao,g,80,8.99,Dulciuri,heidi-dark-85.jpg
+heidi-dark-sour-cherry,Heidi,Dark Sour Cherry,Ciocolată neagră cu vișine,g,80,9.49,Dulciuri,heidi-dark-sour-cherry.jpg
+heidi-dark-95,Heidi,Dark Supreme 95%,Ciocolată neagră 95%,g,80,9.99,Dulciuri,heidi-dark-95.jpg
+poiana-ciocolata-lapte,Poiana,Ciocolată cu lapte 90g,Ciocolată cu lapte,g,90,5.49,Dulciuri,poiana-ciocolata-lapte.jpg
+milka-ciocolata-90g,Milka,Ciocolată cu lapte 90g,Ciocolată alpină,g,90,5.99,Dulciuri,milka-ciocolata-90g.jpg
+mars-baton,Mars,Mars baton,Baton cu caramel și nuga,g,51,3.49,Dulciuri,mars-baton.jpg
+snickers-baton,Snickers,Snickers baton,Baton cu arahide,g,50,3.49,Dulciuri,snickers-baton.jpg
+kinder-bueno,Kinder,Kinder Bueno,Napolitană cu alune,g,43,4.29,Dulciuri,kinder-bueno.jpg
+nutella-350g,Nutella,Nutella 350g,Cremă de cacao,g,350,19.99,Dulciuri,nutella-350g.jpg
+activia-iaurt,Activia,Activia iaurt,Iaurt cu bifidus,g,125,2.99,Dulciuri,activia-iaurt.jpg
+pringles-original,Pringles,Pringles Original,Chipsuri din cartofi,g,165,12.99,Snackuri,pringles-original.jpg
+lays-cheese-215g,Lay's,Lay's Chips Cheese 215g,Chipsuri cu brânză,g,215,9.99,Snackuri,lays-cheese-215g.jpg
+ruffles-salted-255g,Ruffles,Ruffles Salted 255g,Chipsuri ondulate sărate,g,255,10.49,Snackuri,ruffles-salted-255g.jpg
+twix-baton,Twix,Twix baton,Biscuit cu caramel și ciocolată,g,50,3.49,Snackuri,twix-baton.jpg
+kitkat-4fingers,KitKat,KitKat 4 fingers,Napolitană cu ciocolată,g,41.5,3.29,Snackuri,kitkat-4fingers.jpg
+oreo-mini,Oreo,Oreo Original 154g,Biscuiți cu cremă (variantă),g,154,7.49,Snackuri,oreo-mini.jpg
+milka-mmmax,Milka,Milka ciocolată 100g,Ciocolată cu lapte,g,100,6.49,Snackuri,milka-mmmax.jpg
+kinder-joy,Kinder,Kinder Joy,Ou surpriză cu cremă,g,20,6.99,Snackuri,kinder-joy.jpg
+kinder-chocolate,Kinder,Kinder Chocolate,Ciocolată cu lapte,g,100,8.49,Snackuri,kinder-chocolate.jpg
+haribo-goldbaren,Haribo,Goldbears,Jeleuri de fructe,g,100,5.99,Snackuri,haribo-goldbaren.jpg
+hellmanns-mayonnaise,Hellmann's,Real Mayonnaise,Maioneză clasică,g,400,14.99,Conserve,hellmanns-mayonnaise.jpg
+maggi-cube,Maggi,Cuburi Maggi,Condiment cuburi,g,400,11.99,Conserve,maggi-cube.jpg
+barilla-pesto,Barilla,Pesto Genovese,Sos pesto,g,190,16.99,Conserve,barilla-pesto.jpg
+mutti-passata,Mutti,Passata di Pomodoro,Pastă de roșii,g,400,8.49,Conserve,mutti-passata.jpg
+bonduelle-porumb,Bonduelle,Porumb dulce,Porumb boabe conserve,g,300,6.99,Conserve,bonduelle-porumb.jpg
+bonduelle-mazare,Bonduelle,Mazăre verde,Mazăre conserve,g,400,6.49,Conserve,bonduelle-mazare.jpg
+heinz-ketchup,Heinz,Tomato Ketchup,Ketchup clasic,g,460,12.49,Conserve,heinz-ketchup.jpg
+heinz-fasole,Heinz,Tomato Ketchup,Ketchup clasic,g,460,12.49,Conserve,heinz-fasole.jpg
+nescafe-classic,Nescafé,Classic cafea solubilă,Cafea instant,g,100,18.99,Conserve,nescafe-classic.jpg
+lipton-yellow-label,Nescafé,Classic cafea solubilă,Cafea instant,g,200,29.99,Conserve,lipton-yellow-label.jpg
+ariel-perfectwash,Ariel,Ariel Perfectwash,Detergent rufe,kg,1.0,34.99,Detergenți,ariel-perfectwash.jpg
+ariel-pg,Ariel,Ariel detergent,Detergent de rufe,kg,1.5,39.99,Detergenți,ariel-pg.jpg
+persil-lichid,Persil,Persil lichid ecolabel,Detergent lichid,L,1.32,42.99,Detergenți,persil-lichid.jpg
+fairy-washing-up,Palmolive,Naturals Olive & Milk Hand Wash,Săpun lichid refill 500ml,ml,500,18.99,Detergenți,fairy-washing-up.jpg
+domestos-gel,Domestos,Gel WC dezinfectant,Gel dezinfectant WC,L,1.0,16.99,Detergenți,domestos-gel.jpg
+ajax-ultra-lemon,Ajax,Ajax Ultra Lemon,Detergent vase lămâie,L,1.5,14.99,Detergenți,ajax-ultra-lemon.jpg
+palmolive-sapun-lichid,Palmolive,Săpun lichid rezervă,Săpun de mâini,L,0.5,12.99,Detergenți,palmolive-sapun-lichid.jpg
+cif-cream,Domestos,Domestos Gel,Dezinfectant WC,L,1.0,16.99,Detergenți,cif-cream.jpg
+vanish-oxi,Ariel,Ariel detergent,Detergent rufe,kg,1.5,39.99,Detergenți,vanish-oxi.jpg
+lenor-balsam,Ajax,Ajax Ultra Lemon,Detergent vase,L,1.5,14.99,Detergenți,lenor-balsam.jpg
+dove-daily-shine,Dove,Daily Shine Shampoo,Șampon,L,0.4,22.99,Îngrijire personală,dove-daily-shine.jpg
+dove-moisture-shampoo,Dove,Daily Moisture Shampoo,Șampon hidratant,L,0.4,22.99,Îngrijire personală,dove-moisture-shampoo.jpg
+head-shoulders-classic,Head & Shoulders,Classic Clean 2in1,Șampon antimătreață,L,0.2,24.99,Îngrijire personală,head-shoulders-classic.jpg
+colgate-luminous,Colgate,Luminous White,Pastă de dinți,g,75,18.99,Îngrijire personală,colgate-luminous.jpg
+nivea-creme,Nivea,Nivea Creme 150ml,Cremă universală,g,150,19.99,Îngrijire personală,nivea-creme.jpg
+nivea-soft,Nivea,Nivea Creme 400ml,Cremă hidratantă cutie mare,g,400,29.99,Îngrijire personală,nivea-soft.jpg
+oral-b-pasta,Dove,Daily Shine Shampoo,Șampon,L,0.4,22.99,Îngrijire personală,oral-b-pasta.jpg
+gillette-gel,Dove,Ultra Care Daily Moisture Shampoo,Șampon pentru păr uscat,ml,400,22.99,Îngrijire personală,gillette-gel.jpg
+axe-deodorant,Head & Shoulders,Classic Clean 2in1,Șampon antimătreață,L,0.2,24.99,Îngrijire personală,axe-deodorant.jpg
+listerine-cool-mint,Nivea,Nivea Creme,Cremă universală,g,150,19.99,Îngrijire personală,listerine-cool-mint.jpg
+banane-ecuador,Daniofan,Banane,Banane proaspete,kg,1.0,6.99,Fructe & Legume,banane-ecuador.jpg
+mere-golden,Daniofan,Mere Golden,Mere golden,kg,1.0,5.99,Fructe & Legume,mere-golden.jpg
+portocale-valencia,Daniofan,Portocale,Portocale,kg,1.0,6.49,Fructe & Legume,portocale-valencia.jpg
+rosiile-romana,Daniofan,Roșii,Roșii de sezon,kg,1.0,7.99,Fructe & Legume,rosiile-romana.jpg
+castraveti,Daniofan,Castraveți,Castraveți proaspeți,kg,1.0,5.49,Fructe & Legume,castraveti.jpg
+cartofi-albi,Daniofan,Cartofi albi,Cartofi,kg,1.0,3.99,Fructe & Legume,cartofi-albi.jpg
+ceapa-galbena,Daniofan,Ceapă galbenă,Ceapă,kg,1.0,3.49,Fructe & Legume,ceapa-galbena.jpg
+morcovi,Daniofan,Morcovi,Morcovi proaspeți,kg,1.0,4.49,Fructe & Legume,morcovi.jpg
+lamaie,Daniofan,Lămâi,Lămâi galbene,kg,1.0,8.99,Fructe & Legume,lamaie.jpg
+avocado,Daniofan,Avocado,Avocado Hass,buc,1.0,6.99,Fructe & Legume,avocado.jpg
+iglo-spanac,Dr. Oetker,Pizza Ristorante Mozzarella,Pizza congelată,g,335,16.99,Congelate,iglo-spanac.jpg
+iglo-mazare,Magnum,Magnum Classic 4-pack,Înghețată,g,316,24.99,Congelate,iglo-mazare.jpg
+findus-cod,Ben & Jerry's,Cookie Dough,Înghețată,g,465,34.99,Congelate,findus-cod.jpg
+dr-oetker-pizza-ristorante,Dr. Oetker,Pizza Ristorante Quattro Formaggi,Pizza congelată,g,340,16.99,Congelate,dr-oetker-pizza-ristorante.jpg
+dr-oetker-pizza-salame,Dr. Oetker,Pizza Quattro Formaggi,Pizza 4 brânzeturi,g,340,16.99,Congelate,dr-oetker-pizza-salame.jpg
+mcCain-fries,Magnum,Magnum Classic,Înghețată pe băț,g,86,7.99,Congelate,mcCain-fries.jpg
+bonduelle-amestec-legume,Bonduelle,Amestec legume,Mix de legume,g,400,9.49,Congelate,bonduelle-amestec-legume.jpg
+frosta-fish-sticks,Ben & Jerry's,Cookie Dough,Înghețată,g,465,34.99,Congelate,frosta-fish-sticks.jpg
+ben-jerry-cookie-dough,Ben & Jerry's,Cookie Dough,Înghețată,g,465,34.99,Congelate,ben-jerry-cookie-dough.jpg
+magnum-classic,Magnum,Magnum Classic,Înghețată pe băț,g,86,7.99,Congelate,magnum-classic.jpg

@@ -1,10 +1,6 @@
-import type { Metadata } from 'next';
-import AdminStoresPage from '@/components/admin/AdminStoresPage';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = {
-  title: 'Magazine — Panou angajați Daniofan',
-};
-
+/** Alias vechi → Setări / Magazine. */
 export default function Page() {
-  return <AdminStoresPage />;
+  redirect('/admin/setari');
 }

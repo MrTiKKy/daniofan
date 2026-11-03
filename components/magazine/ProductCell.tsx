@@ -173,7 +173,8 @@ export default function ProductCell({
   hPosRef.current = hPos;
 
   const heartLive = !!showHeart && !!slotId && !!magazineType && !gestureEdit;
-  const heartVisible = heartLive || heartEdit || gestureEdit;
+  /* Inima / Lista mea — doar dacă e cerută explicit (dezactivată momentan în client + constructor). */
+  const heartVisible = heartLive || heartEdit;
 
   useLayoutEffect(() => { fitBrand(brandRef.current); }, [brand, title, variant, tPos.x, tPos.y]);
 

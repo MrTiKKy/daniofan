@@ -50,8 +50,13 @@ export default function RevistaViewer({ tip }: Props) {
         setTitle(catalog.title?.trim() || 'Revista');
         const start = parseCatalogDay(catalog.start);
         const end = parseCatalogDay(catalog.end);
-        setPeriod(DF.fmtRange(start, end));
-        setOfferEnd(end);
+        if (catalog.permanent) {
+          setPeriod('Ofertă permanentă');
+          setOfferEnd(null);
+        } else {
+          setPeriod(DF.fmtRange(start, end));
+          setOfferEnd(end);
+        }
       } else {
         const o = DF.resolveOffer(offer, new Date());
         setTitle(o.title);

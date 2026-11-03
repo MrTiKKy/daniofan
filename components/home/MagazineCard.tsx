@@ -11,6 +11,8 @@ interface Props {
   title: string;
   start: Date;
   end: Date;
+  /** Rămâne pe site până o retrage adminul */
+  permanent?: boolean;
   /** Prima foaie din oferta publicată — același aspect ca preview în constructor */
   coverPage: CatalogPage | null;
   products: Product[];
@@ -20,7 +22,7 @@ interface Props {
 }
 
 export default function MagazineCard({
-  kind, title, start, end, coverPage, products, priority, tilt = 'left',
+  kind, title, start, end, permanent, coverPage, products, priority, tilt = 'left',
 }: Props) {
   const href = `/revista/${kind}`;
   const page = coverPage
@@ -62,7 +64,9 @@ export default function MagazineCard({
         </div>
       </Link>
       <h2 className="home-mag__title">{title}</h2>
-      <p className="home-mag__period">{fmtRange(start, end)}</p>
+      <p className="home-mag__period">
+        {permanent ? 'Ofertă permanentă' : fmtRange(start, end)}
+      </p>
       <Link
         href={href}
         className="home-mag__btn"

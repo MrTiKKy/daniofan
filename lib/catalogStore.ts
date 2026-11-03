@@ -1,6 +1,8 @@
-/* Strat de date pentru catalog — LocalStorage acum, Neon mai târziu.
-   Componentele folosesc doar CatalogRepository / funcțiile exportate. */
+/* Strat de date pentru catalog — API / Postgres first.
+   Componentele folosesc CatalogRepository / funcțiile exportate.
+   Când API-ul răspunde (inclusiv listă goală), nu mai citim/seedăm localStorage. */
 import { loadDefaultOffer } from '@/data/offer';
+import { adminAuthHeaders } from './adminAuth';
 import { autoPlaceProducts, emptyPage, uid } from './autoLayout';
 import type {
   Catalog,
@@ -11,7 +13,8 @@ import type {
 } from './catalogTypes';
 import { DEFAULT_GRID, MAGAZINE_KINDS, magazineKindLabel } from './catalogTypes';
 import { discountPct } from './catalogPricing';
-import { loadPublishedMagazine } from './magazineBuilderStore';
+import { MAGAZINE_PUBLISHED_KEY } from './magazineBuilderStore';
+import type { Product } from './types';
 import type { PublicContactSettings, StoreLocation } from './storeTypes';
 import {
   DEMO_PRIMARY_STORE,
@@ -22,6 +25,74 @@ export const CATALOG_LIST_KEY = 'daniofan.catalog.list.v1';
 export const CATALOG_ACTIVE_KEY = 'daniofan.catalog.active.v1';
 export const CATALOG_STORES_KEY = 'daniofan.catalog.stores.v1';
 export const CATALOG_SETTINGS_KEY = 'daniofan.catalog.settings.v1';
+
+/** CatalogProduct → Product (pliant / admin OfferData). */
+export function catalogProductToOfferProduct(p: CatalogProduct): Product {
+  const img = p.images?.[0]?.src || '';
+  const size = (p.details || '').trim()
+    || (p.unitQty > 0 && p.unit ? `${p.unitQty} ${p.unit}` : '');
+  return {
+    id: p.id,
+    brand: p.brand || undefined,
+    name: p.name || '',
+    size,
+    oldPrice: +p.normalPrice || 0,
+    newPrice: +p.promoPrice > 0 ? +p.promoPrice : 0,
+    category: '',
+    hero: false,
+    sgr: false,
+    image: img,
+    validUntil: '',
+    unitQty: p.unitQty > 0 ? p.unitQty : undefined,
+    unitKind: p.unit || undefined,
+  };
+}
+
+/** Product (admin) → Postgres CatalogProduct. */
+export function offerProductToCatalogProduct(p: Product): CatalogProduct {
+  const brand = (p.brand || '').trim() || p.name.split(/\s+/)[0] || p.name;
+  const name = (p.brand || '').trim()
+    ? p.name
+    : (p.name.split(/\s+/).slice(1).join(' ') || p.name);
+  const m = /(\d+[.,]?\d*)\s*(kg|g|l|ml)\b/i.exec(p.size || '');
+  let unitQty = p.unitQty ?? 0;
+  let unit = (p.unitKind || '').trim();
+  if (m && !(unitQty > 0)) {
+    unitQty = parseFloat(m[1].replace(',', '.'));
+    const u = m[2].toLowerCase();
+    if (u === 'g') { unitQty /= 1000; unit = 'kg'; }
+    else if (u === 'ml') { unitQty /= 1000; unit = 'l'; }
+    else unit = u;
+  }
+  const details = [p.size, p.variants].filter(Boolean).join(' · ');
+  const normalPrice = +p.oldPrice > 0 ? +p.oldPrice : 0;
+  const promoPrice = +p.newPrice > 0 ? +p.newPrice : 0;
+  return {
+    id: p.id,
+    brand,
+    name,
+    details,
+    unit,
+    unitQty,
+    normalPrice: Number.isFinite(normalPrice) ? normalPrice : 0,
+    promoPrice: Number.isFinite(promoPrice) ? promoPrice : 0,
+    images: p.image
+      ? [{ src: p.image.replace(/^\//, ''), w: 400, h: 800 }]
+      : [],
+    kind: 'live',
+  };
+}
+
+/** Șterge cache-ul local de produse/reviste — Postgres e sursa. */
+export function clearLocalCatalogCaches(): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.removeItem(CATALOG_PRODUCTS_KEY);
+    localStorage.removeItem(CATALOG_LIST_KEY);
+    localStorage.removeItem(CATALOG_ACTIVE_KEY);
+    localStorage.removeItem(MAGAZINE_PUBLISHED_KEY);
+  } catch { /* */ }
+}
 
 /** Slot pe pagina de pornire (cele 2 tipuri). */
 export interface HomeMagazineSlot {
@@ -97,7 +168,8 @@ export async function migrateDemoProducts(): Promise<CatalogProduct[]> {
       details,
       unit,
       unitQty,
-      normalPrice: +p.oldPrice > 0 ? +p.oldPrice : +p.newPrice,
+      normalPrice: +p.oldPrice > 0 ? +p.oldPrice : 0,
+      promoPrice: +p.newPrice > 0 ? +p.newPrice : 0,
       images: p.image
         ? [{ src: p.image.replace(/^\//, ''), w: 400, h: 800 }]
         : [],
@@ -152,6 +224,199 @@ export async function seedDefaultCatalog(products: CatalogProduct[]): Promise<Ca
   return withPromo;
 }
 
+/**
+ * Client → /api/products (Postgres pe server).
+ * Returnează null dacă API e offline / 503 → fallback localStorage.
+ */
+async function fetchProductsFromApi(): Promise<CatalogProduct[] | null> {
+  if (typeof fetch === 'undefined') return null;
+  try {
+    const res = await fetch('/api/products', { cache: 'no-store' });
+    if (res.status === 503) return null;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || `Nu am putut citi produsele (${res.status}).`);
+    }
+    const data = await res.json() as { items?: CatalogProduct[] };
+    return Array.isArray(data.items) ? data.items : [];
+  } catch (err) {
+    if (err instanceof TypeError) return null; /* network / offline */
+    throw err;
+  }
+}
+
+async function saveProductViaApi(product: CatalogProduct): Promise<boolean> {
+  if (typeof fetch === 'undefined') return false;
+  try {
+    const res = await fetch('/api/products', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...adminAuthHeaders(),
+      },
+      body: JSON.stringify(product),
+    });
+    if (res.status === 503) return false;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || `Salvare eșuată (${res.status}).`);
+    }
+    return true;
+  } catch (err) {
+    if (err instanceof TypeError) return false;
+    throw err;
+  }
+}
+
+async function deleteProductViaApi(id: string): Promise<boolean> {
+  if (typeof fetch === 'undefined') return false;
+  try {
+    const res = await fetch(`/api/products/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { ...adminAuthHeaders() },
+    });
+    if (res.status === 503) return false;
+    if (!res.ok && res.status !== 404) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || `Ștergere eșuată (${res.status}).`);
+    }
+    return true;
+  } catch (err) {
+    if (err instanceof TypeError) return false;
+    throw err;
+  }
+}
+
+async function fetchCatalogsFromApi(): Promise<Catalog[] | null> {
+  if (typeof fetch === 'undefined') return null;
+  try {
+    const res = await fetch('/api/catalogs', { cache: 'no-store' });
+    if (res.status === 503) return null;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || `Nu am putut citi revistele (${res.status}).`);
+    }
+    const data = await res.json() as { items?: Catalog[] };
+    return Array.isArray(data.items) ? data.items : [];
+  } catch (err) {
+    if (err instanceof TypeError) return null;
+    throw err;
+  }
+}
+
+async function saveCatalogViaApi(catalog: Catalog): Promise<boolean> {
+  if (typeof fetch === 'undefined') return false;
+  try {
+    const res = await fetch('/api/catalogs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
+      body: JSON.stringify(catalog),
+    });
+    if (res.status === 503) return false;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || `Salvare revistă eșuată (${res.status}).`);
+    }
+    return true;
+  } catch (err) {
+    if (err instanceof TypeError) return false;
+    throw err;
+  }
+}
+
+async function fetchStoresFromApi(): Promise<StoreLocation[] | null> {
+  if (typeof fetch === 'undefined') return null;
+  try {
+    const res = await fetch('/api/stores', { cache: 'no-store' });
+    if (res.status === 503) return null;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || `Nu am putut citi magazinele (${res.status}).`);
+    }
+    const data = await res.json() as { items?: StoreLocation[] };
+    return Array.isArray(data.items) ? data.items : [];
+  } catch (err) {
+    if (err instanceof TypeError) return null;
+    throw err;
+  }
+}
+
+async function saveStoreViaApi(store: StoreLocation): Promise<boolean> {
+  if (typeof fetch === 'undefined') return false;
+  try {
+    const res = await fetch('/api/stores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
+      body: JSON.stringify(store),
+    });
+    if (res.status === 503) return false;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || `Salvare magazin eșuată (${res.status}).`);
+    }
+    return true;
+  } catch (err) {
+    if (err instanceof TypeError) return false;
+    throw err;
+  }
+}
+
+async function deleteStoreViaApi(id: string): Promise<boolean> {
+  if (typeof fetch === 'undefined') return false;
+  try {
+    const res = await fetch(`/api/stores/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { ...adminAuthHeaders() },
+    });
+    if (res.status === 503) return false;
+    if (!res.ok && res.status !== 404) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || `Ștergere magazin eșuată (${res.status}).`);
+    }
+    return true;
+  } catch (err) {
+    if (err instanceof TypeError) return false;
+    throw err;
+  }
+}
+
+async function fetchSettingsFromApi(): Promise<PublicContactSettings | null> {
+  if (typeof fetch === 'undefined') return null;
+  try {
+    const res = await fetch('/api/settings', { cache: 'no-store' });
+    if (res.status === 503) return null;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || `Nu am putut citi setările (${res.status}).`);
+    }
+    const data = await res.json() as { item?: PublicContactSettings };
+    return data.item || null;
+  } catch (err) {
+    if (err instanceof TypeError) return null;
+    throw err;
+  }
+}
+
+async function saveSettingsViaApi(settings: PublicContactSettings): Promise<boolean> {
+  if (typeof fetch === 'undefined') return false;
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
+      body: JSON.stringify(settings),
+    });
+    if (res.status === 503) return false;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || `Salvare setări eșuată (${res.status}).`);
+    }
+    return true;
+  } catch (err) {
+    if (err instanceof TypeError) return false;
+    throw err;
+  }
+}
+
 export class LocalStorageRepository implements CatalogRepository {
   private ready: Promise<void> | null = null;
 
@@ -162,21 +427,7 @@ export class LocalStorageRepository implements CatalogRepository {
 
   private async bootstrap(): Promise<void> {
     if (typeof localStorage === 'undefined') return;
-    let products = readJson<CatalogProduct[]>(CATALOG_PRODUCTS_KEY, []);
-    if (!products.length) {
-      products = await migrateDemoProducts();
-      writeJson(CATALOG_PRODUCTS_KEY, products);
-    }
-    let list = readJson<Catalog[]>(CATALOG_LIST_KEY, []);
-    if (!list.length) {
-      const seeded = await seedDefaultCatalog(products);
-      list = [seeded];
-      writeJson(CATALOG_LIST_KEY, list);
-      writeJson(CATALOG_ACTIVE_KEY, seeded.id);
-    } else if (!readJson<string | null>(CATALOG_ACTIVE_KEY, null)) {
-      writeJson(CATALOG_ACTIVE_KEY, list[0].id);
-    }
-    /* Magazine demo (exemplu Șos. Râmnicu Sărat 74) */
+    /* Fără seed demo — produsele/revistele vin din baza de date. Doar stores/settings locale ca fallback. */
     const stores = readJson<StoreLocation[]>(CATALOG_STORES_KEY, []);
     if (!stores.length) {
       writeJson(CATALOG_STORES_KEY, [clone(DEMO_PRIMARY_STORE)]);
@@ -187,11 +438,21 @@ export class LocalStorageRepository implements CatalogRepository {
   }
 
   async listProducts(): Promise<CatalogProduct[]> {
+    const fromApi = await fetchProductsFromApi();
+    if (fromApi) {
+      clearLocalCatalogCaches();
+      return fromApi;
+    }
     await this.ensure();
     return clone(readJson<CatalogProduct[]>(CATALOG_PRODUCTS_KEY, []));
   }
 
   async saveProduct(product: CatalogProduct): Promise<void> {
+    const viaApi = await saveProductViaApi(product);
+    if (viaApi) {
+      try { localStorage.removeItem(CATALOG_PRODUCTS_KEY); } catch { /* */ }
+      return;
+    }
     await this.ensure();
     const list = readJson<CatalogProduct[]>(CATALOG_PRODUCTS_KEY, []);
     const i = list.findIndex((p) => p.id === product.id);
@@ -201,17 +462,32 @@ export class LocalStorageRepository implements CatalogRepository {
   }
 
   async deleteProduct(id: string): Promise<void> {
+    const viaApi = await deleteProductViaApi(id);
+    if (viaApi) {
+      try { localStorage.removeItem(CATALOG_PRODUCTS_KEY); } catch { /* */ }
+      return;
+    }
     await this.ensure();
     const list = readJson<CatalogProduct[]>(CATALOG_PRODUCTS_KEY, []).filter((p) => p.id !== id);
     writeJson(CATALOG_PRODUCTS_KEY, list);
   }
 
   async listCatalogs(): Promise<Catalog[]> {
+    const fromApi = await fetchCatalogsFromApi();
+    if (fromApi) {
+      try {
+        localStorage.removeItem(CATALOG_LIST_KEY);
+        localStorage.removeItem(CATALOG_ACTIVE_KEY);
+      } catch { /* */ }
+      return fromApi;
+    }
     await this.ensure();
     return clone(readJson<Catalog[]>(CATALOG_LIST_KEY, []));
   }
 
   async getCatalog(id: string): Promise<Catalog | null> {
+    const fromApi = await fetchCatalogsFromApi();
+    if (fromApi) return fromApi.find((c) => c.id === id) || null;
     await this.ensure();
     const list = readJson<Catalog[]>(CATALOG_LIST_KEY, []);
     const hit = list.find((c) => c.id === id);
@@ -219,16 +495,25 @@ export class LocalStorageRepository implements CatalogRepository {
   }
 
   async saveCatalog(catalog: Catalog): Promise<void> {
+    const viaApi = await saveCatalogViaApi(catalog);
+    if (viaApi) return;
     await this.ensure();
     const list = readJson<Catalog[]>(CATALOG_LIST_KEY, []);
     const i = list.findIndex((c) => c.id === catalog.id);
     const next = clone(catalog);
+    next.updatedAt = new Date().toISOString();
     if (i >= 0) list[i] = next;
     else list.push(next);
-    // un singur published: restul → draft
+    /* Un singur published pe tip; celelalte published pe tip → archived. */
     if (next.status === 'published') {
+      const nextKind = next.kind === 'special' ? 'special' : 'weekend';
       list.forEach((c) => {
-        if (c.id !== next.id && c.status === 'published') c.status = 'draft';
+        if (c.id === next.id || c.status !== 'published') return;
+        const ck = c.kind === 'special' ? 'special' : 'weekend';
+        if (ck === nextKind) {
+          c.status = 'archived';
+          c.permanent = false;
+        }
       });
     }
     writeJson(CATALOG_LIST_KEY, list);
@@ -284,40 +569,13 @@ export class LocalStorageRepository implements CatalogRepository {
   }
 
   async getHomeMagazines(now = new Date()): Promise<HomeMagazineSlot[]> {
-    await this.ensure();
-    const products = readJson<CatalogProduct[]>(CATALOG_PRODUCTS_KEY, []);
-    const list = readJson<Catalog[]>(CATALOG_LIST_KEY, []);
+    const [products, list] = await Promise.all([this.listProducts(), this.listCatalogs()]);
     const byKind = new Map<MagazineKind, Catalog>();
 
     for (const c of list) {
       if (c.status !== 'published') continue;
       const k: MagazineKind = c.kind === 'special' ? 'special' : 'weekend';
       if (!byKind.has(k)) byKind.set(k, clone(c));
-    }
-
-    /* Constructorul publicat are prioritate pe weekend — aceeași foaie ca în preview */
-    const pub = loadPublishedMagazine();
-    if (pub?.pages?.length) {
-      const offer = await loadDefaultOffer();
-      const dates = offer.offer.autoDates
-        ? weekendRange()
-        : { start: offer.offer.start, end: offer.offer.end };
-      const base = byKind.get('weekend');
-      const pages = clone(pub.pages).map((page) => (
-        page.grid ? page : { ...page, grid: { ...(base?.grid || DEFAULT_GRID) } }
-      ));
-      byKind.set('weekend', {
-        id: base?.id || 'builder-published',
-        title: base?.title?.trim() || offer.offer.title || magazineKindLabel('weekend'),
-        start: base?.start || dates.start,
-        end: base?.end || dates.end,
-        theme: base?.theme || (offer.offer.theme as Catalog['theme']) || 'standard',
-        status: 'published',
-        kind: 'weekend',
-        grid: { ...(pages[0]?.grid || base?.grid || DEFAULT_GRID) },
-        pages,
-        coverSrc: base?.coverSrc,
-      });
     }
 
     return MAGAZINE_KINDS.map((kind) => {
@@ -342,6 +600,13 @@ export class LocalStorageRepository implements CatalogRepository {
   }
 
   async getStores(): Promise<StoreLocation[]> {
+    const fromApi = await fetchStoresFromApi();
+    if (fromApi) {
+      return clone(fromApi).sort((a, b) => {
+        if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+        return a.sortOrder - b.sortOrder;
+      });
+    }
     await this.ensure();
     const list = readJson<StoreLocation[]>(CATALOG_STORES_KEY, []);
     return clone(list).sort((a, b) => {
@@ -351,6 +616,8 @@ export class LocalStorageRepository implements CatalogRepository {
   }
 
   async saveStore(store: StoreLocation): Promise<void> {
+    const viaApi = await saveStoreViaApi(store);
+    if (viaApi) return;
     await this.ensure();
     const list = readJson<StoreLocation[]>(CATALOG_STORES_KEY, []);
     const next = clone(store);
@@ -365,6 +632,8 @@ export class LocalStorageRepository implements CatalogRepository {
   }
 
   async deleteStore(id: string): Promise<void> {
+    const viaApi = await deleteStoreViaApi(id);
+    if (viaApi) return;
     await this.ensure();
     let list = readJson<StoreLocation[]>(CATALOG_STORES_KEY, []).filter((s) => s.id !== id);
     if (list.length && !list.some((s) => s.isPrimary)) list[0].isPrimary = true;
@@ -372,6 +641,8 @@ export class LocalStorageRepository implements CatalogRepository {
   }
 
   async getSettings(): Promise<PublicContactSettings> {
+    const fromApi = await fetchSettingsFromApi();
+    if (fromApi) return { ...DEFAULT_CONTACT_SETTINGS, ...fromApi };
     await this.ensure();
     return {
       ...DEFAULT_CONTACT_SETTINGS,
@@ -380,6 +651,8 @@ export class LocalStorageRepository implements CatalogRepository {
   }
 
   async saveSettings(settings: PublicContactSettings): Promise<void> {
+    const viaApi = await saveSettingsViaApi(settings);
+    if (viaApi) return;
     await this.ensure();
     writeJson(CATALOG_SETTINGS_KEY, clone(settings));
   }
@@ -387,7 +660,7 @@ export class LocalStorageRepository implements CatalogRepository {
 
 let repo: CatalogRepository = new LocalStorageRepository();
 
-/** Înlocuiește implementarea (ex. NeonRepository) fără a schimba componentele. */
+/** Înlocuiește implementarea (ex. DbRepository) fără a schimba componentele. */
 export function setCatalogRepository(next: CatalogRepository): void {
   repo = next;
 }
@@ -403,6 +676,55 @@ export const listCatalogs = () => repo.listCatalogs();
 export const getCatalog = (id: string) => repo.getCatalog(id);
 export const saveCatalog = (c: Catalog) => repo.saveCatalog(c);
 export const duplicateCatalog = (id: string) => repo.duplicateCatalog(id);
+
+/** Publică / arhivează pe Postgres (PATCH). Fallback: saveCatalog local. */
+export async function publishCatalog(id: string): Promise<void> {
+  if (typeof fetch !== 'undefined') {
+    try {
+      const res = await fetch(`/api/catalogs/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
+        body: JSON.stringify({ action: 'publish' }),
+      });
+      if (res.status !== 503) {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({})) as { error?: string };
+          throw new Error(body.error || `Publicare eșuată (${res.status}).`);
+        }
+        return;
+      }
+    } catch (err) {
+      if (!(err instanceof TypeError)) throw err;
+    }
+  }
+  const cat = await getCatalog(id);
+  if (!cat) throw new Error('Revista nu există');
+  await saveCatalog({ ...cat, status: 'published' });
+}
+
+export async function archiveCatalog(id: string): Promise<void> {
+  if (typeof fetch !== 'undefined') {
+    try {
+      const res = await fetch(`/api/catalogs/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...adminAuthHeaders() },
+        body: JSON.stringify({ action: 'archive' }),
+      });
+      if (res.status !== 503) {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({})) as { error?: string };
+          throw new Error(body.error || `Arhivare eșuată (${res.status}).`);
+        }
+        return;
+      }
+    } catch (err) {
+      if (!(err instanceof TypeError)) throw err;
+    }
+  }
+  const cat = await getCatalog(id);
+  if (!cat) throw new Error('Revista nu există');
+  await saveCatalog({ ...cat, status: 'archived', permanent: false });
+}
 export const getActiveCatalogId = () => repo.getActiveCatalogId();
 export const setActiveCatalogId = (id: string) => repo.setActiveCatalogId(id);
 export const getPublishedCatalog = () => repo.getPublishedCatalog();
@@ -424,6 +746,8 @@ export function parseCatalogDay(iso: string): Date {
 }
 
 export function isCatalogActive(catalog: Catalog, now = new Date()): boolean {
+  if (catalog.permanent) return true;
+  if (!catalog.start || !catalog.end) return false;
   const start = parseCatalogDay(catalog.start);
   const end = parseCatalogDay(catalog.end);
   end.setHours(23, 59, 59, 999);
@@ -564,5 +888,7 @@ export function validateForPublish(
 }
 
 export function catalogStatusLabel(s: CatalogStatus): string {
-  return s === 'published' ? 'Publicată' : 'Ciornă';
+  if (s === 'published') return 'Publicată';
+  if (s === 'archived') return 'Arhivă';
+  return 'Ciornă';
 }

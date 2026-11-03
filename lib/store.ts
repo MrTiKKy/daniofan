@@ -1,6 +1,15 @@
 /* Daniofan MVP — date, calcule și statistici comune (pliant + panou angajați).
-   Port 1:1 din js/store.js al prototipului static. Rulează doar în browser. */
+   Port 1:1 din js/store.js al prototipului static. Rulează doar în browser.
+   Produsele vin din baza de date (catalogStore); localStorage ține doar store/offer + stats. */
 import { loadDefaultOffer } from '@/data/offer';
+import {
+  catalogProductToOfferProduct,
+  clearLocalCatalogCaches,
+  deleteProduct,
+  listProducts,
+  offerProductToCatalogProduct,
+  saveProduct,
+} from './catalogStore';
 import type { Countdown, LocalStats, OfferData, Product, ProductStatus, ResolvedOffer } from './types';
 
 export const DATA_KEY = 'daniofan.data.v1';
@@ -134,19 +143,70 @@ export function countdown(offer: ResolvedOffer, now?: Date): Countdown {
   return { state: lastDay ? 'last' : 'live', prefix: lastDay ? 'Ultima zi! Se termină în' : 'Oferta se termină în', lead, detail, sub: 'Valabilă până ' + fmtDayLong(offer.end) };
 }
 
-/* ---------- date: implicit + modificările angajatului din localStorage ---------- */
+/* ---------- date: shell (store/offer) local; produse = Postgres ---------- */
+function readShell(): Pick<OfferData, 'store' | 'offer'> | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DATA_KEY) || 'null') as OfferData | null;
+    if (!saved) return null;
+    return { store: saved.store, offer: saved.offer };
+  } catch {
+    return null;
+  }
+}
+
+function writeShell(data: OfferData): void {
+  localStorage.setItem(DATA_KEY, JSON.stringify({
+    store: data.store,
+    offer: data.offer,
+    products: [], /* produsele stau doar pe Postgres */
+  }));
+}
+
 export async function load(): Promise<OfferData> {
   const def = await loadDefaultOffer();
-  let saved: OfferData | null = null;
-  try { saved = JSON.parse(localStorage.getItem(DATA_KEY) || 'null'); } catch { saved = null; }
-  const data = saved && saved.products ? saved : def;
-  data.store = Object.assign({}, def.store, data.store || {});
+  const shell = readShell();
+  const data: OfferData = {
+    store: Object.assign({}, def.store, shell?.store || {}),
+    offer: Object.assign({}, def.offer, shell?.offer || {}),
+    products: [],
+  };
+  try {
+    const listed = await listProducts();
+    data.products = listed.map(catalogProductToOfferProduct);
+    clearLocalCatalogCaches();
+    writeShell(data);
+  } catch {
+    /* DB down — fără produse demo; lista rămâne goală */
+    data.products = [];
+  }
   return data;
 }
+
+/** Salvează shell local + sincronizează produsele pe Postgres. */
 export function save(data: OfferData): void {
-  localStorage.setItem(DATA_KEY, JSON.stringify(data));
+  writeShell(data);
+  void syncProductsToDb(data.products);
 }
-export function reset(): void { localStorage.removeItem(DATA_KEY); }
+
+async function syncProductsToDb(products: Product[]): Promise<void> {
+  try {
+    const existing = await listProducts();
+    const keep = new Set(products.map((p) => p.id));
+    for (const p of products) {
+      await saveProduct(offerProductToCatalogProduct(p));
+    }
+    for (const old of existing) {
+      if (!keep.has(old.id)) await deleteProduct(old.id);
+    }
+  } catch {
+    /* offline / 503 — shell-ul local e deja salvat fără produse */
+  }
+}
+
+export function reset(): void {
+  localStorage.removeItem(DATA_KEY);
+  clearLocalCatalogCaches();
+}
 export const hasCustom = (): boolean => !!localStorage.getItem(DATA_KEY);
 
 /* ---------- statistici locale (click-uri reale în acest browser) ---------- */

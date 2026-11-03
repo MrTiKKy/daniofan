@@ -22,12 +22,10 @@ import {
   displayImages,
   layoutLooksOverflow,
   normalizeImageLayouts,
-  resolveHeartPos,
   resolvePricePos,
   resolveTextPos,
   snapshotDisplay,
 } from '@/lib/pageItemDisplay';
-import { countFeaturedItems } from '@/lib/featured';
 import * as DF from '@/lib/store';
 import type { Product, ResolvedOffer } from '@/lib/types';
 import ProductCell from '@/components/magazine/ProductCell';
@@ -42,6 +40,8 @@ interface Props {
   offer: ResolvedOffer | null;
   /** Expune starea curentă pentru butonul „Publică revista”. */
   onBindPublishSource?: (getState: (() => { pages: CatalogPage[]; activeIndex: number }) | null) => void;
+  /** Sync preț normal / categorie pe produsul din catalog (opțional). */
+  onProductUpdate?: (productId: string, patch: Partial<Product>) => void;
 }
 
 const ZOOM_MIN = 0.55;
@@ -195,7 +195,7 @@ function nearestCell(
   return { col, row };
 }
 
-export default function MagazineBuilder({ products, offer, onBindPublishSource }: Props) {
+export default function MagazineBuilder({ products, offer, onBindPublishSource, onProductUpdate }: Props) {
   const [pages, setPages] = useState<CatalogPage[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [ready, setReady] = useState(false);
@@ -210,8 +210,6 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** dublu-click pe casuță → mod gesturi (poze / text↔preț) */
   const [gestureId, setGestureId] = useState<string | null>(null);
-  /** După click pe inimă: selectează inima odată ce modul gesturi e activ */
-  const [heartFocusId, setHeartFocusId] = useState<string | null>(null);
   /** panouri laterale / bandă pagini — ascundere pentru spațiu pe foaie */
   const [panelLeft, setPanelLeft] = useState(true);
   const [panelRight, setPanelRight] = useState(true);
@@ -288,11 +286,33 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
     return s;
   }, [pages]);
 
+  const [productPatches, setProductPatches] = useState<Record<string, Partial<Product>>>({});
+  const effectiveProducts = useMemo(
+    () => products.map((p) => (productPatches[p.id] ? { ...p, ...productPatches[p.id] } : p)),
+    [products, productPatches],
+  );
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of effectiveProducts) {
+      const c = (p.category || '').trim();
+      if (c) set.add(c);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ro'));
+  }, [effectiveProducts]);
+
+  const handleProductUpdate = useCallback((productId: string, patch: Partial<Product>) => {
+    setProductPatches((prev) => ({
+      ...prev,
+      [productId]: { ...prev[productId], ...patch },
+    }));
+    onProductUpdate?.(productId, patch);
+  }, [onProductUpdate]);
+
   const productsById = useMemo(() => {
     const m = new Map<string, Product>();
-    products.forEach((p) => m.set(p.id, p));
+    effectiveProducts.forEach((p) => m.set(p.id, p));
     return m;
-  }, [products]);
+  }, [effectiveProducts]);
 
   const openGridPicker = useCallback(() => setGridPickerOpen(true), []);
 
@@ -419,7 +439,6 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
 
   const exitGesture = useCallback(() => {
     setGestureId(null);
-    setHeartFocusId(null);
   }, []);
 
   const enterGesture = useCallback((itemId: string) => {
@@ -536,17 +555,6 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
     }));
   }, []);
 
-  const patchItemMeta = useCallback((itemId: string, patch: Partial<PageItem>) => {
-    const idx = activeIndexRef.current;
-    setPages((prev) => prev.map((pg, i) => {
-      if (i !== idx) return pg;
-      return {
-        ...pg,
-        items: pg.items.map((it) => (it.id === itemId ? { ...it, ...patch } : it)),
-      };
-    }));
-  }, []);
-
   const patchDisplay = useCallback((itemId: string, patch: Partial<PageItemDisplay>) => {
     const idx = activeIndexRef.current;
     setPages((prev) => {
@@ -559,7 +567,7 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
           items: pg.items.map((it) => {
             if (it.id !== itemId) return it;
             const src = it.productId
-              ? products.find((p) => p.id === it.productId)
+              ? effectiveProducts.find((p) => p.id === it.productId)
               : null;
             const base = it.display || (src ? snapshotDisplay(src) : snapshotDisplay({
               id: '', name: '', size: '', oldPrice: 0, newPrice: 0, category: '', hero: false, sgr: true, image: '', validUntil: '',
@@ -579,7 +587,7 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
         };
       });
     });
-  }, [products]);
+  }, [effectiveProducts]);
 
   const patchChrome = useCallback((patch: Partial<PageChrome>) => {
     const idx = activeIndexRef.current;
@@ -670,7 +678,7 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
           ...pg,
           items: pg.items.map((it) => {
             if (it.id !== itemId) return it;
-            const src = it.productId ? products.find((p) => p.id === it.productId) : null;
+            const src = it.productId ? effectiveProducts.find((p) => p.id === it.productId) : null;
             const base = it.display || (src ? snapshotDisplay(src) : null);
             if (!base) return it;
             const layouts = normalizeImageLayouts(base.images, base.imageLayouts);
@@ -686,7 +694,7 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
         };
       });
     });
-  }, [products]);
+  }, [effectiveProducts]);
 
   const onResizeStart = useCallback((item: PageItem, corner: ResizeCorner, e: React.PointerEvent) => {
     if (e.button !== 0 || dragRef.current || moveRef.current) return;
@@ -1022,7 +1030,7 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
       <div className="mag-dock mag-dock--left">
         <div className="mag-dock__clip">
           <BuilderProductPanel
-            products={products}
+            products={effectiveProducts}
             offer={offer}
             usedIds={usedIds}
             draggingId={drag?.product.id || null}
@@ -1056,7 +1064,7 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
               ) : null}
               {inGesture ? (
                 <div className="mag-builder__gesture-hint" aria-live="polite">
-                  Click = activează (poză / text / preț / inimă) · trage / scroll = mărime · Shift+scroll pe poză = tilt · Esc = ieși
+                  Click = activează (poză / text / preț) · trage / scroll = mărime · Shift+scroll pe poză = tilt · Esc = ieși
                 </div>
               ) : null}
               {move ? (
@@ -1172,7 +1180,6 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
                           const cellVariant = (item.w * item.h >= 4 || grid.cols <= 2) ? 'std' : 'sm';
                           const textPos = resolveTextPos(item.display);
                           const pricePos = resolvePricePos(item.display);
-                          const heartPos = resolveHeartPos(item.display);
                           return (
                             <div
                               key={item.id}
@@ -1199,9 +1206,6 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
                                   exitGesture();
                                   return;
                                 }
-                                const onHeart = !!(e.target as HTMLElement).closest('.mag-cell__heart');
-                                if (onHeart) setHeartFocusId(item.id);
-                                else setHeartFocusId(null);
                                 enterGesture(item.id);
                               }}
                             >
@@ -1225,19 +1229,16 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
                                   priceLeft={!!item.display?.priceLeft}
                                   textPos={textPos}
                                   pricePos={pricePos}
-                                  heartPos={heartPos}
-                                  heartEdit
                                   gestureEdit={isGesture}
-                                  autoFocusHeart={!previewMode && heartFocusId === item.id}
-                                  onHeartFocused={() => setHeartFocusId(null)}
                                   onImageLayout={isGesture
                                     ? ({ index, layout }) => patchImageLayout(item.id, index, layout)
                                     : undefined}
                                   onBoxPos={isGesture
-                                    ? (kind, pos) => patchDisplay(item.id,
-                                      kind === 'text' ? { textPos: pos }
-                                        : kind === 'price' ? { pricePos: pos }
-                                          : { heartPos: pos })
+                                    ? (kind, pos) => {
+                                      if (kind === 'heart') return;
+                                      patchDisplay(item.id,
+                                        kind === 'text' ? { textPos: pos } : { pricePos: pos });
+                                    }
                                     : undefined}
                                 />
                               ) : null}
@@ -1300,7 +1301,7 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
             <MagazinePageStrip
               pages={pages}
               activeIndex={activeIndex}
-              products={products}
+              products={effectiveProducts}
               onSelect={(i) => { setActiveIndex(i); setSelectedId(null); setGestureId(null); setPan({ x: 0, y: 0 }); }}
               onAdd={openGridPicker}
               onDelete={deletePage}
@@ -1336,8 +1337,8 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource }
                 previewOn={previewMode}
                 onPreview={togglePreview}
                 onChange={(patch) => { if (sel) patchDisplay(sel.id, patch); }}
-                onItemPatch={(patch) => { if (sel) patchItemMeta(sel.id, patch); }}
-                featuredCount={countFeaturedItems(pages)}
+                onProductUpdate={handleProductUpdate}
+                categories={categories}
                 onChromeChange={patchChrome}
                 onAddMessage={addMessageBlock}
                 onMessageChange={(patch) => { if (sel) patchMessage(sel.id, patch); }}

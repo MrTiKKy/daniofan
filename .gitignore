@@ -48,3 +48,4 @@ next-env.d.ts
 *.onnx
 !public/models/.gitkeep
 
+.neon

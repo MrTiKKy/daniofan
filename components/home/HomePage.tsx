@@ -76,6 +76,7 @@ export default function HomePage() {
     if (!now) return null;
     if (activeSlots.length) {
       const c = activeSlots[0].catalog!;
+      if (c.permanent) return null;
       return { start: parseCatalogDay(c.start), end: parseCatalogDay(c.end) };
     }
     if (offerData) {
@@ -124,6 +125,7 @@ export default function HomePage() {
                         title={slot.label}
                         start={parseCatalogDay(c.start)}
                         end={parseCatalogDay(c.end)}
+                        permanent={!!c.permanent}
                         coverPage={first}
                         products={offerData?.products || []}
                         priority={i === 0}

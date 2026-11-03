@@ -1,7 +1,14 @@
-/* Modelul revistei pe grilă. Independent de OfferData vechi — pregătit pentru Neon. */
+/* Modelul revistei pe grilă. Independent de OfferData vechi — pregătit pentru Postgres. */
 
 export type ThemeKey = 'standard' | 'paste' | 'craciun';
-export type CatalogStatus = 'draft' | 'published';
+/** draft = salvată; published = live pe tip; archived = retrasă / înlocuită. */
+export type CatalogStatus = 'draft' | 'published' | 'archived';
+
+export function normalizeCatalogStatus(s: string | undefined): CatalogStatus {
+  if (s === 'published') return 'published';
+  if (s === 'archived') return 'archived';
+  return 'draft';
+}
 
 /** Cele 2 tipuri de revistă pe pagina de pornire / viewer. */
 export type MagazineKind = 'weekend' | 'special';
@@ -10,6 +17,11 @@ export const MAGAZINE_KINDS: MagazineKind[] = ['weekend', 'special'];
 
 export function magazineKindLabel(kind: MagazineKind): string {
   return kind === 'weekend' ? 'Oferta de weekend' : 'Ofertă specială';
+}
+
+/** Titluri pe panoul Reviste (grupare pe tip). */
+export function magazineAdminSectionTitle(kind: MagazineKind): string {
+  return kind === 'weekend' ? 'Daniofan SupeMarket' : 'Daniofan MiniMarket';
 }
 
 export function isMagazineKind(v: string): v is MagazineKind {
@@ -34,8 +46,13 @@ export interface CatalogProduct {
   unit: string;
   /** cantitate numerică (ex. 0.5) */
   unitQty: number;
+  /** Preț normal (vechi / de raft). */
   normalPrice: number;
+  /** Preț redus pe produs (0 = fără). */
+  promoPrice?: number;
   images: ProductImage[];
+  /** 'test' = date de test; 'live' (sau lipsă) = produs real */
+  kind?: 'test' | 'live';
 }
 
 export interface MediaSlot {
@@ -215,6 +232,10 @@ export interface Catalog {
   kind?: MagazineKind;
   /** Copertă opțională (URL / path); altfel se deduce din prima pagină. */
   coverSrc?: string;
+  /** Ultima salvare — ordonare pe panoul Reviste (recent → vechi). */
+  updatedAt?: string;
+  /** Rămâne pe panoul clienți până o retrage adminul (ignoră end). */
+  permanent?: boolean;
 }
 
 export type SizePresetId = 'mic' | 'lat' | 'inalt' | 'mare' | 'panoramic' | 'vedeta';

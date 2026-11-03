@@ -53,6 +53,7 @@ export default function BuilderApp() {
   const [ghost, setGhost] = useState<Ghost>(null);
   const [dragMeta, setDragMeta] = useState<{ w: number; h: number; productId?: string; itemId?: string } | null>(null);
   const [saveMsg, setSaveMsg] = useState('');
+  const [productsErr, setProductsErr] = useState('');
   const [issues, setIssues] = useState<PublishIssue[]>([]);
   const [newOpen, setNewOpen] = useState(false);
   const [mediaActive, setMediaActive] = useState<number | null>(null);
@@ -70,19 +71,28 @@ export default function BuilderApp() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const [prods, activeId, list] = await Promise.all([
-        listProducts(),
-        getActiveCatalogId(),
-        listCatalogs(),
-      ]);
-      if (!alive) return;
-      setProducts(prods);
-      const id = activeId || list[0]?.id;
-      if (!id) return;
-      const cat = await getCatalog(id);
-      if (cat && alive) {
-        reset(cat);
-        setPageIndex(0);
+      try {
+        const [prods, activeId, list] = await Promise.all([
+          listProducts(),
+          getActiveCatalogId(),
+          listCatalogs(),
+        ]);
+        if (!alive) return;
+        setProductsErr('');
+        setProducts(prods);
+        const id = activeId || list[0]?.id;
+        if (!id) return;
+        const cat = await getCatalog(id);
+        if (cat && alive) {
+          reset(cat);
+          setPageIndex(0);
+        }
+      } catch (err) {
+        if (!alive) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setProductsErr(msg.includes('DATABASE') || msg.includes('Supabase') || msg.includes('Postgres')
+          ? msg
+          : `Nu am putut încărca produsele: ${msg}`);
       }
     })();
     return () => { alive = false; };
@@ -518,12 +528,26 @@ export default function BuilderApp() {
         onReorder={(pages) => updateCatalog((c) => ({ ...c, pages }))}
       />
 
+      {productsErr ? (
+        <div className="b-toast b-toast--err" role="alert" style={{ position: 'fixed', left: 16, right: 16, bottom: 16, zIndex: 80 }}>
+          {productsErr}
+        </div>
+      ) : null}
+
       <NewProductModal
         open={newOpen}
         onClose={() => setNewOpen(false)}
         onSave={async (p) => {
-          await saveProduct(p);
-          setProducts((list) => [...list, p]);
+          try {
+            setProductsErr('');
+            await saveProduct(p);
+            const fresh = await listProducts();
+            setProducts(fresh);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setProductsErr(msg);
+            throw err;
+          }
         }}
       />
     </div>

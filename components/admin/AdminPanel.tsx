@@ -7,22 +7,12 @@ import * as DF from '@/lib/store';
 import * as Social from '@/lib/social';
 import type { FormatKey } from '@/lib/social';
 import { drawQR } from '@/lib/qr';
-import { download, num, processImage } from '@/lib/image';
+import { download } from '@/lib/image';
 import type { LocalStats, OfferData, Product } from '@/lib/types';
 import BrandLogo from '@/components/BrandLogo';
-import MagazineBuilder from '@/components/builder/MagazineBuilder';
-import type { CatalogPage } from '@/lib/catalogTypes';
-import {
-  loadMagazineBuilderDraft,
-  publishMagazine,
-  saveMagazineBuilderDraft,
-} from '@/lib/magazineBuilderStore';
-import {
-  getHomeMagazines,
-  saveCatalog,
-} from '@/lib/catalogStore';
+import ProductShelfModal, { type ShelfDraft } from '@/components/builder/ProductShelfModal';
+import AdminShell from './AdminShell';
 import ProductCard from './ProductCard';
-import ProductRow, { type FieldKey, type RowAction } from './ProductRow';
 import Stats from './Stats';
 /** Datele salvate + momentul salvării (status, QR și imaginile se refac după salvare, ca în original). */
 type Snapshot = { data: OfferData; at: Date };
@@ -38,16 +28,8 @@ export default function AdminPanel() {
   const [stats, setStats] = useState<LocalStats | null>(null);
   const [saved, setSaved] = useState({ msg: '', err: false, show: false });
   const [socialUrls, setSocialUrls] = useState<Partial<Record<FormatKey, string>>>({});
-  const [tab, setTab] = useState<'constructor' | 'produse'>('produse');
   const [productQuery, setProductQuery] = useState('');
   const [editIndex, setEditIndex] = useState<number | null>(null);
-  const publishSourceRef = useRef<(() => { pages: CatalogPage[]; activeIndex: number }) | null>(null);
-  const bindPublishSource = useCallback(
-    (getState: (() => { pages: CatalogPage[]; activeIndex: number }) | null) => {
-      publishSourceRef.current = getState;
-    },
-    [],
-  );
 
   const dataRef = useRef<OfferData | null>(null);
   const socialUrlsRef = useRef<Partial<Record<FormatKey, string>>>({});
@@ -66,39 +48,6 @@ export default function AdminPanel() {
     window.clearTimeout(flashT.current);
     flashT.current = window.setTimeout(() => setSaved((s) => ({ ...s, show: false })), err ? 5000 : 2200);
   }, []);
-
-  const publishRevista = useCallback(() => {
-    const live = publishSourceRef.current?.();
-    const pages = live?.pages ?? loadMagazineBuilderDraft()?.pages ?? [];
-    const activeIndex = live?.activeIndex ?? loadMagazineBuilderDraft()?.activeIndex ?? 0;
-    const withGrid = pages.filter((p) => !!p.grid);
-    if (!withGrid.length) {
-      flash('Adaugă cel puțin o pagină în Constructor înainte de publicare.', true);
-      if (tab !== 'constructor') setTab('constructor');
-      return;
-    }
-    void (async () => {
-      try {
-        saveMagazineBuilderDraft(pages, activeIndex);
-        publishMagazine(pages);
-        /* Sync pe slotul weekend — coperta de pe home = prima foaie ca în preview */
-        const slots = await getHomeMagazines();
-        const weekend = slots.find((s) => s.kind === 'weekend')?.catalog;
-        if (weekend) {
-          await saveCatalog({
-            ...weekend,
-            status: 'published',
-            kind: 'weekend',
-            grid: withGrid[0].grid || weekend.grid,
-            pages: withGrid,
-          });
-        }
-        flash('✓ Revista a fost publicată. Deschide pliantul clientului.');
-      } catch (err) {
-        flash(err instanceof Error ? err.message : 'Publicarea a eșuat.', true);
-      }
-    })();
-  }, [flash, tab]);
 
   const persist = useCallback((next: OfferData) => {
     window.clearTimeout(saveT.current);
@@ -132,29 +81,6 @@ export default function AdminPanel() {
     DF.load().then((d) => { if (alive) renderAll(d); });
     return () => { alive = false; };
   }, [renderAll]);
-
-  /* Constructor: fără scroll pe pagină — doar zoom pe foaie / scroll în panoul de produse */
-  useEffect(() => {
-    if (tab !== 'constructor') return;
-    document.documentElement.classList.add('admin-builder-lock');
-    document.body.classList.add('admin-builder-lock');
-    const syncChrome = () => {
-      const top = document.querySelector('.a-top');
-      const tabs = document.querySelector('.a-tabs');
-      const h = Math.ceil(
-        (top?.getBoundingClientRect().height || 0) + (tabs?.getBoundingClientRect().height || 0),
-      );
-      document.documentElement.style.setProperty('--admin-chrome', `${h || 128}px`);
-    };
-    syncChrome();
-    window.addEventListener('resize', syncChrome);
-    return () => {
-      window.removeEventListener('resize', syncChrome);
-      document.documentElement.classList.remove('admin-builder-lock');
-      document.body.classList.remove('admin-builder-lock');
-      document.documentElement.style.removeProperty('--admin-chrome');
-    };
-  }, [tab]);
 
   /* ---------- 4. QR (+ afișul A5) ---------- */
   const renderQR = useCallback((d: OfferData) => {
@@ -251,49 +177,34 @@ export default function AdminPanel() {
   const cur = () => dataRef.current as OfferData;
 
   const setProducts = (products: Product[], opts?: { products?: boolean }) => commit({ ...cur(), products }, opts);
-  const onField = (i: number, k: FieldKey, value: string) => {
+
+  const saveShelfProduct = (i: number, d: ShelfDraft) => {
     const products = cur().products.slice();
-    const next = { ...products[i] };
-    if (k === 'oldPrice' || k === 'newPrice') next[k] = num(value);
-    else if (k === 'unitQty') {
-      if (value.trim() === '') delete next.unitQty;
-      else next.unitQty = num(value);
-    } else next[k] = value;
-    products[i] = next;
-    setProducts(products);
+    const prev = products[i];
+    if (!prev) return;
+    products[i] = {
+      ...prev,
+      brand: d.brand || undefined,
+      name: d.name,
+      size: d.size,
+      oldPrice: d.oldPrice,
+      newPrice: d.newPrice,
+      category: d.category || prev.category,
+      image: d.image || '',
+      unitQty: d.unitQty && d.unitQty > 0 ? d.unitQty : undefined,
+      unitKind: d.unitKind || undefined,
+    };
+    setProducts(products, { products: true });
   };
-  const onCheck = (i: number, k: 'hero' | 'sgr', checked: boolean) => {
-    const P = cur().products;
-    if (k === 'hero') setProducts(P.map((x, j) => ({ ...x, hero: j === i ? checked : false })), { products: true });
-    else setProducts(P.map((x, j) => (j === i ? { ...x, sgr: checked } : x)));
-  };
-  const onImage = async (i: number, file: File) => {
-    const cut = !!cutBgRef.current?.checked;
-    flash(cut ? 'Se taie fundalul (U-2-Net în browser)…' : 'Se prelucrează poza…');
-    try {
-      const image = await processImage(file, cut);
-      setProducts(cur().products.map((x, j) => (j === i ? { ...x, image } : x)), { products: true });
-      flash('✓ Poză actualizată.');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Poza nu a putut fi prelucrată.';
-      flash(msg, true);
-    }
-  };
-  const onAction = (i: number, act: RowAction) => {
+
+  const deleteProduct = (i: number) => {
     const P = cur().products.slice();
-    if (act === 'del') {
-      if (!confirm(`Ștergeți „${P[i].name || 'produsul'} ${P[i].size || ''}" din ofertă?`)) return;
-      P.splice(i, 1);
-      setEditIndex(null);
-    } else if (act === 'up' && i > 0) {
-      [P[i - 1], P[i]] = [P[i], P[i - 1]];
-      setEditIndex(i - 1);
-    } else if (act === 'down' && i < P.length - 1) {
-      [P[i + 1], P[i]] = [P[i], P[i + 1]];
-      setEditIndex(i + 1);
-    }
+    if (!confirm(`Ștergeți „${P[i]?.name || 'produsul'} ${P[i]?.size || ''}" din ofertă?`)) return;
+    P.splice(i, 1);
+    setEditIndex(null);
     setProducts(P, { products: true });
   };
+
   const addProduct = (atTop: boolean) => {
     const P = cur().products;
     const id = 'p' + crypto.randomUUID().slice(0, 8);
@@ -305,18 +216,9 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (editIndex == null) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setEditIndex(null); };
-    window.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const t = window.setTimeout(() => {
-      document.querySelector<HTMLInputElement>('.prod-modal [data-k=name]')?.focus();
-    }, 40);
-    return () => {
-      window.clearTimeout(t);
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
-    };
+    return () => { document.body.style.overflow = prev; };
   }, [editIndex]);
 
   /* ---------- 4. QR: acțiuni ---------- */
@@ -326,8 +228,8 @@ export default function AdminPanel() {
 
   /* ---------- resetări ---------- */
   const resetData = async () => {
-    if (!confirm('Reveniți la oferta demo inițială? Modificările voastre se pierd.')) return;
-    DF.reset(); const d = await DF.load(); renderAll(d); flash('Oferta demo a fost restaurată.');
+    if (!confirm('Golești lista locală și reîncarci produsele din baza de date?')) return;
+    DF.reset(); const d = await DF.load(); renderAll(d); flash('Reîncărcat din baza de date.');
   };
   const resetStats = () => { DF.resetStats(); setStats(DF.getStats()); flash('Click-urile locale au fost șterse.'); };
 
@@ -363,61 +265,34 @@ export default function AdminPanel() {
       });
   }, [data, productQuery]);
   const editProduct = editIndex != null && data ? data.products[editIndex] : null;
+  const categories = useMemo(() => {
+    if (!data) return [] as string[];
+    const set = new Set<string>();
+    for (const p of data.products) {
+      const c = (p.category || '').trim();
+      if (c) set.add(c);
+    }
+    ['Bere', 'Băuturi', 'Lactate', 'Carne', 'Fructe și legume', 'Dulciuri', 'Curățenie'].forEach((c) => set.add(c));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ro'));
+  }, [data]);
+
+  const shelfInitial: ShelfDraft | null = useMemo(() => {
+    if (!editProduct) return null;
+    return {
+      brand: editProduct.brand || '',
+      name: editProduct.name || '',
+      size: editProduct.size || '',
+      unitQty: editProduct.unitQty,
+      unitKind: editProduct.unitKind,
+      oldPrice: +editProduct.oldPrice || 0,
+      newPrice: +editProduct.newPrice || 0,
+      category: editProduct.category || '',
+      image: editProduct.image || '',
+    };
+  }, [editProduct, editIndex]); // eslint-disable-line react-hooks/exhaustive-deps -- re-seed on product switch
 
   return (
-    <>
-      <header className="a-top">
-        <div className="a-in">
-          <div className="a-brand"><span className="mini-logo"><BrandLogo size="sm" /></span><span className="a-title">Panou angajați</span></div>
-          <div className="a-top-actions">
-            <button type="button" className="btn a-publish" onClick={publishRevista}>
-              Publică revista
-            </button>
-            <a className="btn a-open" href="/" target="_blank" rel="noopener">Vezi pliantul clientului →</a>
-          </div>
-        </div>
-      </header>
-      <div className="a-tabs" role="tablist" aria-label="Secțiuni panou">
-        <button
-          type="button"
-          role="tab"
-          id="tab-constructor"
-          className={'a-tab' + (tab === 'constructor' ? ' is-on' : '')}
-          aria-selected={tab === 'constructor'}
-          onClick={() => setTab('constructor')}
-        >
-          Constructor Revista
-        </button>
-        <button
-          type="button"
-          role="tab"
-          id="tab-produse"
-          className={'a-tab' + (tab === 'produse' ? ' is-on' : '')}
-          aria-selected={tab === 'produse'}
-          onClick={() => setTab('produse')}
-        >
-          Produse
-        </button>
-        <a
-          href="/admin/magazine"
-          role="tab"
-          className="a-tab"
-          id="tab-magazine"
-        >
-          Magazine
-        </a>
-      </div>
-
-      {tab === 'constructor' ? (
-        <main className="a-main a-main--builder" aria-labelledby="tab-constructor">
-          <MagazineBuilder
-            products={data?.products || []}
-            offer={resolved}
-            onBindPublishSource={bindPublishSource}
-          />
-        </main>
-      ) : (
-      <main className="a-main" aria-labelledby="tab-produse">
+    <AdminShell active="produse">
         <section className="a-card status-card" id="status">{status}</section>
 
         <section className="a-card">
@@ -445,8 +320,6 @@ export default function AdminPanel() {
               : <p className="help prod-grid__empty">Niciun produs încă. Apăsați „Adaugă produs&quot;.</p>) : null}
           </div>
           <button className="btn a-add big" id="add-bottom" type="button" onClick={() => addProduct(false)}>+ Adaugă încă un produs</button>
-          <datalist id="cats"><option>Bere</option><option>Băuturi</option><option>Lactate</option><option>Carne</option><option>Fructe și legume</option><option>Dulciuri</option><option>Curățenie</option></datalist>
-          <datalist id="units"><option>l</option><option>kg</option><option>buc</option></datalist>
         </section>
 
         <section className="a-card">
@@ -490,44 +363,24 @@ export default function AdminPanel() {
         </section>
 
         <section className="a-card a-reset">
-          <button className="btn a-ghost" id="reset-data" type="button" onClick={resetData}>Revino la oferta demo inițială</button>
+          <button className="btn a-ghost" id="reset-data" type="button" onClick={resetData}>Reîncarcă din baza de date</button>
           <button className="btn a-ghost" id="reset-stats" type="button" onClick={resetStats}>Șterge click-urile locale</button>
         </section>
         <p className="a-foot">Prototip EDGE pentru Daniofan Market · fără server, totul rulează în browser</p>
-      </main>
-      )}
 
-      {editIndex != null && editProduct && resolved ? (
-        <div
-          className="prod-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="prod-modal-title"
-          onClick={(e) => { if (e.target === e.currentTarget) setEditIndex(null); }}
-        >
-          <div className="prod-modal__panel">
-            <div className="prod-modal__head">
-              <h2 id="prod-modal-title">Editează produs</h2>
-              <button type="button" className="prod-modal__x" aria-label="Închide" onClick={() => setEditIndex(null)}>×</button>
-            </div>
-            <div className="prod-modal__body">
-              <ProductRow
-                key={productsKey + ':' + editProduct.id}
-                p={editProduct}
-                i={editIndex}
-                n={n}
-                offer={resolved}
-                onField={onField}
-                onCheck={onCheck}
-                onImage={onImage}
-                onAction={onAction}
-              />
-            </div>
-            <div className="prod-modal__foot">
-              <button type="button" className="btn a-add" onClick={() => setEditIndex(null)}>Gata</button>
-            </div>
-          </div>
-        </div>
+      {editIndex != null && shelfInitial ? (
+        <ProductShelfModal
+          key={productsKey + ':' + (editProduct?.id || editIndex)}
+          open
+          title={editProduct?.name ? 'Editează produs' : 'Produs nou'}
+          initial={shelfInitial}
+          categories={categories}
+          showPromoPrice
+          onClose={() => setEditIndex(null)}
+          onSave={(d) => { saveShelfProduct(editIndex, d); }}
+          onDelete={() => deleteProduct(editIndex)}
+          cutBackground={() => !!cutBgRef.current?.checked}
+        />
       ) : null}
 
       <div className={'saved' + (saved.show ? ' show' : '') + (saved.err ? ' err' : '')} id="saved" role="status">{saved.msg}</div>
@@ -539,6 +392,6 @@ export default function AdminPanel() {
         <p className="p-step">Deschideți camera telefonului și îndreptați-o spre cod.</p>
         <p className="p-url" id="poster-url" ref={posterUrlRef}></p>
       </div>
-    </>
+    </AdminShell>
   );
 }

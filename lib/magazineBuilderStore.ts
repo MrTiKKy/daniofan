@@ -1,5 +1,6 @@
-/* Draft + publicare constructor revistă — localStorage (până la Neon). */
-import type { CatalogPage } from './catalogTypes';
+/* Draft + publicare constructor revistă — localStorage (până la sync server). */
+import type { CatalogPage, MagazineKind } from './catalogTypes';
+import { isMagazineKind } from './catalogTypes';
 
 export const MAGAZINE_BUILDER_KEY = 'daniofan.magazine.builder.v1';
 export const MAGAZINE_PUBLISHED_KEY = 'daniofan.magazine.published.v1';
@@ -10,11 +11,29 @@ export interface MagazineBuilderDraft {
   pages: CatalogPage[];
   activeIndex: number;
   updatedAt: string;
+  /** Tip magazin / slot pe home — setat în constructor, publicat din Reviste. */
+  kind?: MagazineKind;
+  title?: string;
+  start?: string;
+  end?: string;
+  permanent?: boolean;
+  /** Id catalog pe Postgres (draft salvat). */
+  catalogId?: string;
+}
+
+export interface MagazineDraftMeta {
+  kind?: MagazineKind;
+  title?: string;
+  start?: string;
+  end?: string;
+  permanent?: boolean;
+  catalogId?: string;
 }
 
 export interface PublishedMagazine {
   pages: CatalogPage[];
   publishedAt: string;
+  kind?: MagazineKind;
 }
 
 function readDraft(): MagazineBuilderDraft | null {
@@ -34,16 +53,28 @@ export function loadMagazineBuilderDraft(): MagazineBuilderDraft | null {
   const data = readDraft();
   if (!data || data.pages.length === 0) return null;
   const activeIndex = Math.max(0, Math.min(data.activeIndex || 0, data.pages.length - 1));
-  return { ...data, activeIndex };
+  const kind = data.kind && isMagazineKind(data.kind) ? data.kind : 'weekend';
+  return { ...data, activeIndex, kind };
 }
 
-export function saveMagazineBuilderDraft(pages: CatalogPage[], activeIndex: number): void {
+export function saveMagazineBuilderDraft(
+  pages: CatalogPage[],
+  activeIndex: number,
+  meta?: MagazineDraftMeta,
+): void {
   if (typeof localStorage === 'undefined') return;
   try {
+    const prev = readDraft();
     const draft: MagazineBuilderDraft = {
       pages,
       activeIndex,
       updatedAt: new Date().toISOString(),
+      kind: meta?.kind ?? prev?.kind ?? 'weekend',
+      title: meta?.title !== undefined ? meta.title : prev?.title,
+      start: meta?.start !== undefined ? meta.start : prev?.start,
+      end: meta?.end !== undefined ? meta.end : prev?.end,
+      permanent: meta?.permanent !== undefined ? meta.permanent : prev?.permanent,
+      catalogId: meta?.catalogId !== undefined ? meta.catalogId : prev?.catalogId,
     };
     localStorage.setItem(MAGAZINE_BUILDER_KEY, JSON.stringify(draft));
   } catch {
@@ -61,11 +92,15 @@ function clonePages(pages: CatalogPage[]): CatalogPage[] {
 }
 
 /** Publică foile cu grilă — apar pe pliantul clientului ca în preview. */
-export function publishMagazine(pages: CatalogPage[]): PublishedMagazine {
+export function publishMagazine(
+  pages: CatalogPage[],
+  kind: MagazineKind = 'weekend',
+): PublishedMagazine {
   const ready = pages.filter((p) => !!p.grid);
   const published: PublishedMagazine = {
     pages: clonePages(ready),
     publishedAt: new Date().toISOString(),
+    kind,
   };
   if (typeof localStorage !== 'undefined') {
     try {

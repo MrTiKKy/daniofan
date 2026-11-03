@@ -212,7 +212,7 @@ export default function Magazine({
           reduced={reduced}
           handlers={{
             highlightId: initialHighlightId ?? null,
-            showHeart: chrome && !!kind,
+            showHeart: false,
             magazineType: kind,
           }}
           allProducts={data.products}
