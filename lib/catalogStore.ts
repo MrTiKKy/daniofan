@@ -37,7 +37,10 @@ export function catalogProductToOfferProduct(p: CatalogProduct): Product {
     name: p.name || '',
     size,
     oldPrice: +p.normalPrice || 0,
-    newPrice: +p.promoPrice > 0 ? +p.promoPrice : 0,
+    newPrice: (() => {
+      const promo = Number(p.promoPrice ?? 0);
+      return promo > 0 ? promo : 0;
+    })(),
     category: '',
     hero: false,
     sgr: false,
