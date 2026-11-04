@@ -5,7 +5,7 @@ import AdminStoresPanel from './AdminStoresPanel';
 /** Setări → sub-tab Magazine (CRUD magazine + WhatsApp). */
 export default function AdminStoresPage() {
   return (
-    <AdminShell active="setari" settingsTab="magazine" title="Setări">
+    <AdminShell active="setari" settingsTab="magazine">
       <AdminStoresPanel />
     </AdminShell>
   );

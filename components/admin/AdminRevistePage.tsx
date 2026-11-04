@@ -1,7 +1,7 @@
 'use client';
-/* Reviste pe Postgres: Live + Recente + Arhivă; Publică / Retrage de aici. */
+/* Reviste pe Postgres: Live + Draft-uri + Arhivă; Publică / Retrage / Editează de aici. */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import AdminShell from './AdminShell';
 import AdminRevistaCover from './AdminRevistaCover';
 import AdminRevistaViewer from './AdminRevistaViewer';
@@ -16,10 +16,13 @@ import {
 import {
   archiveCatalog,
   catalogProductToOfferProduct,
+  deleteCatalog,
+  duplicateCatalog,
   listCatalogs,
   listProducts,
   publishCatalog,
 } from '@/lib/catalogStore';
+import { clearMagazineBuilderDraft, saveMagazineBuilderDraft } from '@/lib/magazineBuilderStore';
 import type { Product } from '@/lib/types';
 
 const RECENT_LIMIT = 8;
@@ -67,22 +70,46 @@ function statusLabel(item: RevistaCard): string {
   return 'Draft';
 }
 
+function formatUpdated(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' });
+}
+
+function cardMeta(item: RevistaCard): string {
+  const pages = `${item.pageCount || 0} pag.`;
+  const when = formatUpdated(item.updatedAt);
+  return when ? `${pages} · ${when}` : pages;
+}
+
 function RevistaCardView({
   item,
   products,
   busyId,
+  menuId,
   onOpen,
+  onEdit,
   onPublish,
   onArchive,
+  onDuplicate,
+  onDelete,
+  onToggleMenu,
 }: {
   item: RevistaCard;
   products: Product[];
   busyId: string | null;
+  menuId: string | null;
   onOpen: (id: string) => void;
+  onEdit: (id: string) => void;
   onPublish: (id: string) => void;
   onArchive: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  onDelete: (id: string) => void;
+  onToggleMenu: (id: string) => void;
 }) {
   const busy = busyId === item.id;
+  const menuOpen = menuId === item.id;
   return (
     <article className="a-rev-card" role="listitem">
       <button
@@ -101,9 +128,18 @@ function RevistaCardView({
           <span className={'a-rev-card__status is-' + item.status}>
             {statusLabel(item)}
           </span>
+          <span className="a-rev-card__meta">{cardMeta(item)}</span>
         </div>
       </button>
       <div className="a-rev-card__acts">
+        <button
+          type="button"
+          className="a-rev-card__edit"
+          disabled={busy}
+          onClick={() => onEdit(item.id)}
+        >
+          Editează
+        </button>
         {item.status !== 'published' ? (
           <button
             type="button"
@@ -114,24 +150,74 @@ function RevistaCardView({
             {busy ? '…' : 'Publică'}
           </button>
         ) : (
+          <>
+            <a
+              className="a-rev-card__site"
+              href={`/revista/${item.kind}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Vezi pe site
+            </a>
+            <button
+              type="button"
+              className="a-rev-card__retract"
+              disabled={busy}
+              onClick={() => onArchive(item.id)}
+            >
+              {busy ? '…' : 'Retrage de pe site'}
+            </button>
+          </>
+        )}
+        <div className="a-rev-card__more">
           <button
             type="button"
-            className="a-rev-card__retract"
+            className="a-rev-card__more-btn"
+            aria-expanded={menuOpen}
+            aria-label="Mai multe acțiuni"
             disabled={busy}
-            onClick={() => onArchive(item.id)}
+            onClick={() => onToggleMenu(item.id)}
           >
-            {busy ? '…' : 'Retrage de pe site'}
+            ⋯
           </button>
-        )}
+          {menuOpen ? (
+            <div className="a-rev-card__menu" role="menu">
+              <button type="button" role="menuitem" disabled={busy} onClick={() => onDuplicate(item.id)}>
+                Duplică
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="is-danger"
+                disabled={busy}
+                onClick={() => onDelete(item.id)}
+              >
+                Șterge
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
     </article>
   );
 }
 
+function LivePlaceholder() {
+  return (
+    <div className="a-rev-live-slot" role="status">
+      <span className="a-rev-live-slot__label">Nimic live</span>
+      <span className="a-rev-live-slot__hint">Publică un draft ca să apară aici.</span>
+    </div>
+  );
+}
+
 export default function AdminRevistePage() {
+  const router = useRouter();
   const [catalogs, setCatalogs] = useState<Catalog[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [menuId, setMenuId] = useState<string | null>(null);
   const [archiveOpen, setArchiveOpen] = useState<Partial<Record<MagazineKind, boolean>>>({});
   const [flash, setFlash] = useState<{ msg: string; err?: boolean } | null>(null);
   const [viewingId, setViewingId] = useState<string | null>(null);
@@ -143,8 +229,27 @@ export default function AdminRevistePage() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    let alive = true;
+    (async () => {
+      try {
+        await refresh();
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
   }, [refresh]);
+
+  useEffect(() => {
+    if (!menuId) return;
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest('.a-rev-card__more')) return;
+      setMenuId(null);
+    };
+    document.addEventListener('click', onDoc);
+    return () => document.removeEventListener('click', onDoc);
+  }, [menuId]);
 
   const viewing = useMemo(
     () => (viewingId ? catalogs.find((c) => c.id === viewingId) || null : null),
@@ -156,30 +261,53 @@ export default function AdminRevistePage() {
     window.setTimeout(() => setFlash(null), err ? 5000 : 2500);
   };
 
-  const onPublish = async (id: string) => {
+  const withBusy = async (id: string, fn: () => Promise<void>, okMsg: string) => {
     setBusyId(id);
+    setMenuId(null);
     try {
-      await publishCatalog(id);
+      await fn();
       await refresh();
-      showFlash('✓ Revista e live pe site.');
+      showFlash(okMsg);
     } catch (e) {
-      showFlash(e instanceof Error ? e.message : 'Publicarea a eșuat.', true);
+      showFlash(e instanceof Error ? e.message : 'Operația a eșuat.', true);
     } finally {
       setBusyId(null);
     }
   };
 
-  const onArchive = async (id: string) => {
-    setBusyId(id);
-    try {
-      await archiveCatalog(id);
-      await refresh();
-      showFlash('Retrasă — mutată în arhivă.');
-    } catch (e) {
-      showFlash(e instanceof Error ? e.message : 'Retragerea a eșuat.', true);
-    } finally {
-      setBusyId(null);
-    }
+  const onPublish = (id: string) =>
+    withBusy(id, () => publishCatalog(id), '✓ Revista e live pe site.');
+
+  const onArchive = (id: string) =>
+    withBusy(id, () => archiveCatalog(id), 'Retrasă — mutată în arhivă.');
+
+  const onDuplicate = (id: string) =>
+    withBusy(id, async () => { await duplicateCatalog(id); }, 'Copie creată ca draft.');
+
+  const onDelete = (id: string) => {
+    if (!window.confirm('Ștergi definitiv revista? Acțiunea nu poate fi anulată.')) return;
+    void withBusy(id, () => deleteCatalog(id), 'Revista a fost ștearsă.');
+    if (viewingId === id) setViewingId(null);
+  };
+
+  const onEdit = (id: string) => {
+    const cat = catalogs.find((c) => c.id === id);
+    if (!cat) return;
+    const kind = normalizeKind(cat.kind);
+    saveMagazineBuilderDraft(cat.pages || [], 0, {
+      kind,
+      title: cat.title,
+      start: cat.start,
+      end: cat.end,
+      permanent: !!cat.permanent,
+      catalogId: cat.id,
+    });
+    router.push('/admin/constructor');
+  };
+
+  const onCreate = (kind: MagazineKind) => {
+    clearMagazineBuilderDraft();
+    router.push(`/admin/constructor?kind=${kind}&new=1`);
   };
 
   const byKind = useMemo(() => {
@@ -187,6 +315,7 @@ export default function AdminRevistePage() {
       live: RevistaCard | null;
       recent: RevistaCard[];
       archive: RevistaCard[];
+      total: number;
     }>();
 
     for (const k of MAGAZINE_KINDS) {
@@ -196,111 +325,156 @@ export default function AdminRevistePage() {
         .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
 
       const live = all.find((c) => c.status === 'published') || null;
-      const recent = all.filter((c) => c.status !== 'archived').slice(0, RECENT_LIMIT);
+      const recent = all.filter((c) => c.status === 'draft').slice(0, RECENT_LIMIT);
       const archive = all.filter((c) => c.status === 'archived');
 
-      map.set(k, { live, recent, archive });
+      map.set(k, { live, recent, archive, total: all.length });
     }
     return map;
   }, [catalogs]);
 
   return (
-    <AdminShell active="reviste" title="Reviste">
+    <AdminShell active="reviste">
       {flash ? (
         <div className={'a-stores-flash' + (flash.err ? ' is-err' : '')} role="status">
           {flash.msg}
         </div>
       ) : null}
 
-      <p className="a-rev-lead">
-        Apasă pe o revistă ca să o răsfoiești. De aici le <strong>publici</strong> pe site.
-        {' '}
-        <Link href="/admin/constructor">Deschide constructorul →</Link>
-      </p>
-
       <div className="a-rev">
-        {MAGAZINE_KINDS.map((kind) => {
-          const block = byKind.get(kind)!;
-          const showArchive = !!archiveOpen[kind];
-          return (
-            <section key={kind} className="a-rev-section" aria-labelledby={`rev-${kind}`}>
-              <h2 id={`rev-${kind}`} className="a-rev-section__title">
-                {magazineAdminSectionTitle(kind)}
-              </h2>
-
-              <div className="a-rev-live">
-                <h3 className="a-rev-sub">Live pe site</h3>
-                {block.live ? (
-                  <div className="a-rev-rail" role="list">
-                    <RevistaCardView
-                      item={block.live}
-                      products={products}
-                      busyId={busyId}
-                      onOpen={setViewingId}
-                      onPublish={onPublish}
-                      onArchive={onArchive}
-                    />
-                  </div>
-                ) : (
-                  <p className="a-rev-empty">Nicio revistă publicată pe acest tip.</p>
-                )}
-              </div>
-
-              <div className="a-rev-recent">
-                <div className="a-rev-recent__head">
-                  <h3 className="a-rev-sub">Recente salvate</h3>
-                  <button
-                    type="button"
-                    className="a-rev-archive-btn"
-                    onClick={() => setArchiveOpen((s) => ({ ...s, [kind]: !s[kind] }))}
-                  >
-                    {showArchive ? 'Ascunde arhiva' : `Vezi arhiva (${block.archive.length})`}
-                  </button>
-                </div>
-                {block.recent.length === 0 ? (
-                  <p className="a-rev-empty">Nicio salvare încă. Folosește constructorul.</p>
-                ) : (
-                  <div className="a-rev-rail" role="list">
-                    {block.recent.map((item) => (
-                      <RevistaCardView
-                        key={item.id}
-                        item={item}
-                        products={products}
-                        busyId={busyId}
-                        onOpen={setViewingId}
-                        onPublish={onPublish}
-                        onArchive={onArchive}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {showArchive ? (
-                <div className="a-rev-archive">
-                  <h3 className="a-rev-sub">Arhivă</h3>
-                  {block.archive.length === 0 ? (
-                    <p className="a-rev-empty">Arhiva e goală.</p>
-                  ) : (
-                    <div className="a-rev-rail" role="list">
-                      {block.archive.map((item) => (
-                        <RevistaCardView
-                          key={item.id}
-                          item={item}
-                          products={products}
-                          busyId={busyId}
-                          onOpen={setViewingId}
-                          onPublish={onPublish}
-                          onArchive={onArchive}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : null}
+        {loading ? (
+          MAGAZINE_KINDS.map((kind) => (
+            <section key={kind} className="a-rev-section a-rev-section--skeleton" aria-busy="true">
+              <div className="a-rev-skel a-rev-skel--title" />
+              <div className="a-rev-skel a-rev-skel--card" />
+              <div className="a-rev-skel a-rev-skel--line" />
             </section>
-          );
-        })}
+          ))
+        ) : (
+          MAGAZINE_KINDS.map((kind) => {
+            const block = byKind.get(kind)!;
+            const showArchive = !!archiveOpen[kind];
+            const empty = block.total === 0;
+
+            return (
+              <section key={kind} className="a-rev-section" aria-labelledby={`rev-${kind}`}>
+                <div className="a-rev-section__head">
+                  <h2 id={`rev-${kind}`} className="a-rev-section__title">
+                    {magazineAdminSectionTitle(kind)}
+                  </h2>
+                  {!empty ? (
+                    <button
+                      type="button"
+                      className="a-rev-create"
+                      onClick={() => onCreate(kind)}
+                    >
+                      + Creează revistă
+                    </button>
+                  ) : null}
+                </div>
+
+                {empty ? (
+                  <div className="a-rev-empty-block">
+                    <p className="a-rev-empty-block__text">Nicio revistă salvată încă.</p>
+                    <button
+                      type="button"
+                      className="a-rev-create a-rev-create--primary"
+                      onClick={() => onCreate(kind)}
+                    >
+                      Creează revistă
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="a-rev-live">
+                      <h3 className="a-rev-sub">Live pe site</h3>
+                      {block.live ? (
+                        <div className="a-rev-rail" role="list">
+                          <RevistaCardView
+                            item={block.live}
+                            products={products}
+                            busyId={busyId}
+                            menuId={menuId}
+                            onOpen={setViewingId}
+                            onEdit={onEdit}
+                            onPublish={onPublish}
+                            onArchive={onArchive}
+                            onDuplicate={onDuplicate}
+                            onDelete={onDelete}
+                            onToggleMenu={(id) => setMenuId((cur) => (cur === id ? null : id))}
+                          />
+                        </div>
+                      ) : (
+                        <LivePlaceholder />
+                      )}
+                    </div>
+
+                    <div className="a-rev-recent">
+                      <h3 className="a-rev-sub">Draft-uri</h3>
+                      {block.recent.length === 0 ? (
+                        <p className="a-rev-empty">Niciun draft. Creează o revistă nouă sau duplică una existentă.</p>
+                      ) : (
+                        <div className="a-rev-rail" role="list">
+                          {block.recent.map((item) => (
+                            <RevistaCardView
+                              key={item.id}
+                              item={item}
+                              products={products}
+                              busyId={busyId}
+                              menuId={menuId}
+                              onOpen={setViewingId}
+                              onEdit={onEdit}
+                              onPublish={onPublish}
+                              onArchive={onArchive}
+                              onDuplicate={onDuplicate}
+                              onDelete={onDelete}
+                              onToggleMenu={(id) => setMenuId((cur) => (cur === id ? null : id))}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {block.archive.length > 0 ? (
+                      <div className="a-rev-archive">
+                        <div className="a-rev-archive__head">
+                          <h3 className="a-rev-sub">Arhivă</h3>
+                          <button
+                            type="button"
+                            className="a-rev-archive-btn"
+                            onClick={() => setArchiveOpen((s) => ({ ...s, [kind]: !s[kind] }))}
+                          >
+                            {showArchive ? 'Ascunde arhiva' : `Vezi arhiva (${block.archive.length})`}
+                          </button>
+                        </div>
+                        {showArchive ? (
+                          <div className="a-rev-rail" role="list">
+                            {block.archive.map((item) => (
+                              <RevistaCardView
+                                key={item.id}
+                                item={item}
+                                products={products}
+                                busyId={busyId}
+                                menuId={menuId}
+                                onOpen={setViewingId}
+                                onEdit={onEdit}
+                                onPublish={onPublish}
+                                onArchive={onArchive}
+                                onDuplicate={onDuplicate}
+                                onDelete={onDelete}
+                                onToggleMenu={(id) => setMenuId((cur) => (cur === id ? null : id))}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </section>
+            );
+          })
+        )}
       </div>
 
       {viewing ? (
@@ -311,6 +485,9 @@ export default function AdminRevistePage() {
           onClose={() => setViewingId(null)}
           onPublish={onPublish}
           onArchive={onArchive}
+          onEdit={() => onEdit(viewing.id)}
+          onDuplicate={() => onDuplicate(viewing.id)}
+          onDelete={() => onDelete(viewing.id)}
         />
       ) : null}
     </AdminShell>

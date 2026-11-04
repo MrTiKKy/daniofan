@@ -112,6 +112,7 @@ export interface CatalogRepository {
   getCatalog(id: string): Promise<Catalog | null>;
   saveCatalog(catalog: Catalog): Promise<void>;
   duplicateCatalog(id: string): Promise<Catalog>;
+  deleteCatalog(id: string): Promise<void>;
   getActiveCatalogId(): Promise<string | null>;
   setActiveCatalogId(id: string): Promise<void>;
   getPublishedCatalog(): Promise<Catalog | null>;
@@ -316,6 +317,25 @@ async function saveCatalogViaApi(catalog: Catalog): Promise<boolean> {
     if (!res.ok) {
       const body = await res.json().catch(() => ({})) as { error?: string };
       throw new Error(body.error || `Salvare revistă eșuată (${res.status}).`);
+    }
+    return true;
+  } catch (err) {
+    if (err instanceof TypeError) return false;
+    throw err;
+  }
+}
+
+async function deleteCatalogViaApi(id: string): Promise<boolean> {
+  if (typeof fetch === 'undefined') return false;
+  try {
+    const res = await fetch(`/api/catalogs/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { ...adminAuthHeaders() },
+    });
+    if (res.status === 503) return false;
+    if (!res.ok && res.status !== 404) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || `Ștergere revistă eșuată (${res.status}).`);
     }
     return true;
   } catch (err) {
@@ -537,6 +557,19 @@ export class LocalStorageRepository implements CatalogRepository {
     return copy;
   }
 
+  async deleteCatalog(id: string): Promise<void> {
+    const viaApi = await deleteCatalogViaApi(id);
+    if (viaApi) {
+      try { localStorage.removeItem(CATALOG_LIST_KEY); } catch { /* */ }
+      return;
+    }
+    await this.ensure();
+    const list = readJson<Catalog[]>(CATALOG_LIST_KEY, []).filter((c) => c.id !== id);
+    writeJson(CATALOG_LIST_KEY, list);
+    const active = readJson<string | null>(CATALOG_ACTIVE_KEY, null);
+    if (active === id) writeJson(CATALOG_ACTIVE_KEY, null);
+  }
+
   async getActiveCatalogId(): Promise<string | null> {
     await this.ensure();
     return readJson<string | null>(CATALOG_ACTIVE_KEY, null);
@@ -676,6 +709,7 @@ export const listCatalogs = () => repo.listCatalogs();
 export const getCatalog = (id: string) => repo.getCatalog(id);
 export const saveCatalog = (c: Catalog) => repo.saveCatalog(c);
 export const duplicateCatalog = (id: string) => repo.duplicateCatalog(id);
+export const deleteCatalog = (id: string) => repo.deleteCatalog(id);
 
 /** Publică / arhivează pe Postgres (PATCH). Fallback: saveCatalog local. */
 export async function publishCatalog(id: string): Promise<void> {
@@ -745,13 +779,9 @@ export function parseCatalogDay(iso: string): Date {
   return new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0, 0);
 }
 
-export function isCatalogActive(catalog: Catalog, now = new Date()): boolean {
-  if (catalog.permanent) return true;
-  if (!catalog.start || !catalog.end) return false;
-  const start = parseCatalogDay(catalog.start);
-  const end = parseCatalogDay(catalog.end);
-  end.setHours(23, 59, 59, 999);
-  return now.getTime() >= start.getTime() && now.getTime() <= end.getTime();
+/** Momentan: publicat = vizibil. Fereastra start/end e dezactivată (revine ulterior). */
+export function isCatalogActive(_catalog: Catalog, _now = new Date()): boolean {
+  return true;
 }
 
 /** Prima poză utilă de pe foile catalogului (copertă). */

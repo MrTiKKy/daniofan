@@ -16,6 +16,7 @@ import type {
   CatalogStatus,
   MagazineKind,
   PageChrome,
+  PageDecorItem,
   PageItem,
   ThemeKey,
 } from '@/lib/catalogTypes';
@@ -96,6 +97,7 @@ export const catalogPages = pgTable(
     sortOrder: integer('sort_order').notNull().default(0),
     grid: jsonb('grid').$type<CatalogGrid>(),
     chrome: jsonb('chrome').$type<PageChrome>(),
+    decor: jsonb('decor').$type<PageDecorItem[]>(),
     items: jsonb('items').$type<PageItem[]>().notNull().default([]),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

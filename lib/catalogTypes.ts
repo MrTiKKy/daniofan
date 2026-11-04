@@ -10,18 +10,22 @@ export function normalizeCatalogStatus(s: string | undefined): CatalogStatus {
   return 'draft';
 }
 
-/** Cele 2 tipuri de revistă pe pagina de pornire / viewer. */
+/**
+ * Cele 2 tipuri de revistă = cele 2 tipuri de magazin Daniofan.
+ * Chei stabile în DB/URL: `weekend` → SupeMarket, `special` → MiniMarket.
+ */
 export type MagazineKind = 'weekend' | 'special';
 
 export const MAGAZINE_KINDS: MagazineKind[] = ['weekend', 'special'];
 
+/** Etichetă publică + admin: tipul de magazin. */
 export function magazineKindLabel(kind: MagazineKind): string {
-  return kind === 'weekend' ? 'Oferta de weekend' : 'Ofertă specială';
+  return kind === 'weekend' ? 'Daniofan SupeMarket' : 'Daniofan MiniMarket';
 }
 
-/** Titluri pe panoul Reviste (grupare pe tip). */
+/** Titluri pe panoul Reviste (grupare pe tip magazin). */
 export function magazineAdminSectionTitle(kind: MagazineKind): string {
-  return kind === 'weekend' ? 'Daniofan SupeMarket' : 'Daniofan MiniMarket';
+  return magazineKindLabel(kind);
 }
 
 export function isMagazineKind(v: string): v is MagazineKind {
@@ -84,6 +88,10 @@ export interface BoxPos {
   y: number;
   /** 1 = mărime implicită (scroll resize în mod gesturi) */
   scale?: number;
+  /** Lățime casetă text (% din casuță) — controlează câte cuvinte încap pe rând */
+  w?: number;
+  /** @deprecated Înălțimea e auto (după text); ignorat la randare. */
+  h?: number;
 }
 
 export const DEFAULT_TEXT_POS: BoxPos = { x: 0, y: 70, scale: 1 };
@@ -112,12 +120,19 @@ export interface PageItemDisplay {
   overflow?: boolean;
   /** true = prețul în stânga, textul în dreapta (poziții implicite) */
   priceLeft?: boolean;
+  /** Afișează linia „1 kg = … lei” / „1 l = …” pe casuță */
+  showUnitPrice?: boolean;
   /** poziție liberă text în chenar */
   textPos?: BoxPos;
   /** poziție liberă preț în chenar */
   pricePos?: BoxPos;
   /** poziție inimioară „Lista mea” */
   heartPos?: BoxPos;
+  /**
+   * Override stil preț pe această casuță.
+   * Lipsă = moștenește stilul paginii (`chrome.price`).
+   */
+  priceStyle?: Partial<PagePriceStyle>;
 }
 
 export interface PageItem {
@@ -147,8 +162,9 @@ export interface PageItem {
   featured?: boolean;
 }
 
-/** Fonturi disponibile pentru bloc mesaj */
+/** Fonturi pentru text pe foaie (decor) */
 export type MessageFontId = 'cond' | 'body' | 'cond-italic' | 'serif' | 'display';
+export type DecorFontId = MessageFontId;
 
 /** Stil pentru bloc mesaj pe grilă */
 export interface PageItemDesign {
@@ -183,10 +199,77 @@ export interface PageHeader {
   style: PageHeaderStyleId;
 }
 
-/** Aspect pagină (fundal + header) — per foaie */
+/** Stil prețuri pe foaie (default pentru toate casuțele). */
+export interface PagePriceStyle {
+  promoColor?: string;
+  /** Același font: clasic | oblic | bold (preț umflat). */
+  digitStyle?: 'clasic' | 'oblic' | 'bold';
+  /** Stil bloc preț (clasic = cu umbră, default). */
+  look?: 'clasic' | 'plat' | 'contour' | 'stampila' | 'relief' | 'negativ';
+}
+
+/** Aspect pagină (fundal + header + prețuri) — per foaie */
 export interface PageChrome {
   bg: PageBgPresetId;
   header?: PageHeader;
+  /** Stil prețuri default pe foaie */
+  price?: PagePriceStyle;
+}
+
+/** Forme pe foaie (plan din spate, sub produse). */
+export type PageShapeKind =
+  | 'rect'
+  | 'roundRect'
+  | 'ellipse'
+  | 'triangle'
+  | 'diamond'
+  | 'line'
+  | 'arrow'
+  | 'star'
+  | 'hexagon'
+  | 'burst'
+  | 'pentagon'
+  | 'octagon'
+  | 'heart'
+  | 'cross'
+  | 'plus'
+  | 'chevron'
+  | 'parallelogram'
+  | 'trapezoid'
+  | 'semicircle'
+  | 'ring'
+  | 'badge'
+  | 'ribbon'
+  | 'cloud'
+  | 'speech';
+
+/** Formă sau text pe planul din spate (sub produse). */
+export type PageDecorItem = PageDecorShape | PageDecorText;
+
+export interface PageDecorBox {
+  id: string;
+  fill: string;
+  /** Poziție / mărime în % din foaie */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rotate?: number;
+  opacity?: number;
+}
+
+export interface PageDecorShape extends PageDecorBox {
+  kind: 'shape';
+  shape: PageShapeKind;
+}
+
+export interface PageDecorText extends PageDecorBox {
+  kind: 'text';
+  text: string;
+  fontFamily?: DecorFontId;
+  fontWeight?: number;
+  italic?: boolean;
+  uppercase?: boolean;
 }
 
 export interface CatalogPage {
@@ -196,6 +279,8 @@ export interface CatalogPage {
   grid?: CatalogGrid;
   /** fundal + header (design pagină) */
   chrome?: PageChrome;
+  /** Forme decorative — mereu în spatele produselor */
+  decor?: PageDecorItem[];
 }
 
 export interface CatalogGrid {

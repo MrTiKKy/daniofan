@@ -1,9 +1,7 @@
 'use client';
 /* Viewer simplu pe Reviste: foaie cu ← → + Editează / Publică / Retrage. */
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { DEFAULT_GRID, type Catalog, type CatalogStatus } from '@/lib/catalogTypes';
-import { saveMagazineBuilderDraft } from '@/lib/magazineBuilderStore';
 import type { Product } from '@/lib/types';
 import MagazinePage from '@/components/magazine/MagazinePage';
 import { catalogPageProducts } from '@/components/magazine/CatalogPageSheet';
@@ -15,6 +13,9 @@ interface Props {
   onClose: () => void;
   onPublish: (id: string) => void;
   onArchive: (id: string) => void;
+  onEdit: () => void;
+  onDuplicate?: () => void;
+  onDelete?: () => void;
 }
 
 function statusLabel(status: CatalogStatus, permanent?: boolean): string {
@@ -30,13 +31,16 @@ export default function AdminRevistaViewer({
   onClose,
   onPublish,
   onArchive,
+  onEdit,
+  onDuplicate,
+  onDelete,
 }: Props) {
-  const router = useRouter();
   const pages = useMemo(
     () => (catalog.pages || []).filter((p) => !!p.grid || (p.items && p.items.length)),
     [catalog.pages],
   );
   const [index, setIndex] = useState(0);
+  const kind = catalog.kind === 'special' ? 'special' : 'weekend';
 
   useEffect(() => {
     setIndex(0);
@@ -63,19 +67,6 @@ export default function AdminRevistaViewer({
         ),
       }
     : null;
-
-  const goEdit = () => {
-    const kind = catalog.kind === 'special' ? 'special' : 'weekend';
-    saveMagazineBuilderDraft(catalog.pages || [], 0, {
-      kind,
-      title: catalog.title,
-      start: catalog.start,
-      end: catalog.end,
-      permanent: !!catalog.permanent,
-      catalogId: catalog.id,
-    });
-    router.push('/admin/constructor');
-  };
 
   return (
     <div
@@ -138,9 +129,19 @@ export default function AdminRevistaViewer({
         </p>
 
         <footer className="a-rev-viewer__foot">
-          <button type="button" className="btn a-ghost" disabled={busy} onClick={goEdit}>
+          <button type="button" className="btn a-ghost" disabled={busy} onClick={onEdit}>
             Editează
           </button>
+          {catalog.status === 'published' ? (
+            <a
+              className="btn a-ghost"
+              href={`/revista/${kind}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Vezi pe site
+            </a>
+          ) : null}
           {catalog.status !== 'published' ? (
             <button
               type="button"
@@ -153,14 +154,23 @@ export default function AdminRevistaViewer({
           ) : (
             <button
               type="button"
-              className="btn a-ghost"
-              style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
+              className="btn a-rev-viewer__retract"
               disabled={busy}
               onClick={() => onArchive(catalog.id)}
             >
               {busy ? '…' : 'Retrage'}
             </button>
           )}
+          {onDuplicate ? (
+            <button type="button" className="btn a-ghost" disabled={busy} onClick={onDuplicate}>
+              Duplică
+            </button>
+          ) : null}
+          {onDelete ? (
+            <button type="button" className="btn a-ghost a-rev-viewer__danger" disabled={busy} onClick={onDelete}>
+              Șterge
+            </button>
+          ) : null}
           <button type="button" className="btn a-ghost" disabled={busy} onClick={onClose}>
             Închide
           </button>

@@ -1,7 +1,7 @@
 'use client';
 /* Intrare viewer /revista/[tip] — chrome + foaie + swipe + BottomNav. */
 import { useEffect, useMemo, useState } from 'react';
-import { getPublishedByKind, parseCatalogDay } from '@/lib/catalogStore';
+import { getPublishedByKind } from '@/lib/catalogStore';
 import type { CatalogPage, MagazineKind } from '@/lib/catalogTypes';
 import * as DF from '@/lib/store';
 import type { OfferData } from '@/lib/types';
@@ -16,8 +16,6 @@ export default function RevistaViewer({ tip }: Props) {
   const [data, setData] = useState<OfferData | null>(null);
   const [pages, setPages] = useState<CatalogPage[] | null>(null);
   const [title, setTitle] = useState('Revista');
-  const [period, setPeriod] = useState('');
-  const [offerEnd, setOfferEnd] = useState<Date | null>(null);
   const [ready, setReady] = useState(false);
   const [at, setAt] = useState<Date | null>(null);
   const [highlightSlotId, setHighlightSlotId] = useState<string | null>(null);
@@ -48,20 +46,9 @@ export default function RevistaViewer({ tip }: Props) {
       setPages(catalog?.pages?.length ? catalog.pages : []);
       if (catalog) {
         setTitle(catalog.title?.trim() || 'Revista');
-        const start = parseCatalogDay(catalog.start);
-        const end = parseCatalogDay(catalog.end);
-        if (catalog.permanent) {
-          setPeriod('Ofertă permanentă');
-          setOfferEnd(null);
-        } else {
-          setPeriod(DF.fmtRange(start, end));
-          setOfferEnd(end);
-        }
       } else {
         const o = DF.resolveOffer(offer, new Date());
         setTitle(o.title);
-        setPeriod(DF.fmtRange(o.start, o.end));
-        setOfferEnd(o.end);
       }
       document.body.dataset.theme = catalog?.theme || offer.offer.theme || 'standard';
       setReady(true);
@@ -92,9 +79,9 @@ export default function RevistaViewer({ tip }: Props) {
           initialHighlightId={highlightSlotId}
           showChrome
           title={chromeTitle}
-          period={period}
+          period=""
           kind={tip}
-          offerEnd={offerEnd}
+          offerEnd={null}
         />
       </main>
     </PublicChrome>

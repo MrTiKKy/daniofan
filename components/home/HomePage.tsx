@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   getHomeMagazines,
-  parseCatalogDay,
   type HomeMagazineSlot,
 } from '@/lib/catalogStore';
 import { getFeaturedSlots, type FeaturedSlot } from '@/lib/featured';
@@ -72,20 +71,6 @@ export default function HomePage() {
     return getFeaturedSlots(sources, offerData.products, { now, limit: 8 });
   }, [activeSlots, offerData, now]);
 
-  const urgency = useMemo(() => {
-    if (!now) return null;
-    if (activeSlots.length) {
-      const c = activeSlots[0].catalog!;
-      if (c.permanent) return null;
-      return { start: parseCatalogDay(c.start), end: parseCatalogDay(c.end) };
-    }
-    if (offerData) {
-      const o = DF.resolveOffer(offerData, now);
-      return { start: o.start, end: o.end };
-    }
-    return null;
-  }, [activeSlots, offerData, now]);
-
   const phone = offerData?.store.phone || '';
   const phoneLabel = offerData?.store.phoneLabel || phone;
   const noneActive = slots != null && activeSlots.length === 0;
@@ -96,7 +81,7 @@ export default function HomePage() {
       <div className="home">
         <HomeHeader phone={phone} phoneLabel={phoneLabel} />
         <NearestStoreBar now={now ?? undefined} />
-        {urgency && now ? <UrgencyBanner start={urgency.start} end={urgency.end} now={now} /> : null}
+        <UrgencyBanner />
 
         <main className="home__main">
           {loading ? (
@@ -123,9 +108,6 @@ export default function HomePage() {
                       <MagazineCard
                         kind={slot.kind}
                         title={slot.label}
-                        start={parseCatalogDay(c.start)}
-                        end={parseCatalogDay(c.end)}
-                        permanent={!!c.permanent}
                         coverPage={first}
                         products={offerData?.products || []}
                         priority={i === 0}

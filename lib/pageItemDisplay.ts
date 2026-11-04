@@ -28,6 +28,7 @@ export function snapshotDisplay(p: Product): PageItemDisplay {
     imageLayouts: images.map(() => ({ ...DEFAULT_IMAGE_LAYOUT })),
     overflow: false,
     priceLeft: false,
+    showUnitPrice: false,
     textPos: { ...DEFAULT_TEXT_POS },
     pricePos: { ...DEFAULT_PRICE_POS },
     heartPos: { ...DEFAULT_HEART_POS },
@@ -35,7 +36,11 @@ export function snapshotDisplay(p: Product): PageItemDisplay {
 }
 
 export function resolveTextPos(d?: PageItemDisplay | null): BoxPos {
-  if (d?.textPos) return { scale: 1, ...d.textPos };
+  if (d?.textPos) {
+    const { h: _dropH, ...rest } = { scale: 1, ...d.textPos };
+    void _dropH;
+    return rest;
+  }
   return d?.priceLeft ? { ...DEFAULT_TEXT_POS_LEFT } : { ...DEFAULT_TEXT_POS };
 }
 
@@ -59,17 +64,46 @@ export function clampBoxPos(
   boxWPct: number,
   boxHPct: number,
   scale = 1,
+  size?: { w?: number; h?: number },
 ): BoxPos {
   const s = Math.min(2.4, Math.max(0.45, scale));
-  const w = Math.max(0.5, Math.min(100, boxWPct));
-  const h = Math.max(0.5, Math.min(100, boxHPct));
-  const maxX = Math.max(0, 100 - w);
-  const maxY = Math.max(0, 100 - h);
-  return {
+  const frameW = size?.w != null ? Math.max(14, Math.min(92, size.w)) : Math.max(0.5, Math.min(100, boxWPct));
+  /* Înălțime doar pentru clamp la mutare; caseta de text nu fixează h (auto pe conținut). */
+  const frameH = Math.max(0.5, Math.min(100, boxHPct));
+  const maxX = Math.max(0, 100 - frameW);
+  const maxY = Math.max(0, 100 - frameH);
+  const out: BoxPos = {
     x: Math.round(Math.min(maxX, Math.max(0, x)) * 10) / 10,
     y: Math.round(Math.min(maxY, Math.max(0, y)) * 10) / 10,
     scale: Math.round(s * 100) / 100,
   };
+  if (size?.w != null) out.w = Math.round(frameW * 10) / 10;
+  return out;
+}
+
+/** Doar stânga/dreapta — înălțimea urmează textul (primul → ultimul rând). */
+export type TextResizeEdge = 'e' | 'w';
+
+/** Redimensionează lățimea casetei de text (% din casuță). h nu se fixează. */
+export function resizeTextBox(
+  orig: BoxPos,
+  edge: TextResizeEdge,
+  dxPct: number,
+  _dyPct = 0,
+): BoxPos {
+  const w0 = orig.w != null ? orig.w : 40;
+  let x = orig.x;
+  let w = w0;
+  if (edge === 'e') w = w0 + dxPct;
+  else {
+    w = w0 - dxPct;
+    x = orig.x + dxPct;
+  }
+  const next = clampBoxPos(x, orig.y, w, 12, orig.scale ?? 1, { w });
+  /* Fără h — înălțimea e auto, după conținut. */
+  const { h: _drop, ...rest } = next as BoxPos & { h?: number };
+  void _drop;
+  return rest;
 }
 
 export function normalizeImageLayouts(

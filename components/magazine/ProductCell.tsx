@@ -10,7 +10,12 @@ import {
   DEFAULT_TEXT_POS,
   DEFAULT_TEXT_POS_LEFT,
 } from '@/lib/catalogTypes';
-import { clampBoxPos } from '@/lib/pageItemDisplay';
+import { clampBoxPos, resizeTextBox, type TextResizeEdge } from '@/lib/pageItemDisplay';
+import {
+  DEFAULT_PAGE_PRICE_STYLE,
+  priceStyleCssVars,
+  type ResolvedPriceStyle,
+} from '@/lib/priceStyle';
 import * as DF from '@/lib/store';
 import type { Product } from '@/lib/types';
 import HeartStepper from '@/components/list/HeartStepper';
@@ -75,6 +80,8 @@ export default function ProductCell({
   p, variant = 'std', eager, onProduct, highlight, interactive = true,
   images, priceLeft = false, imageLayouts, overflow = false,
   textPos, pricePos, heartPos,
+  priceStyle,
+  showUnitPrice = false,
   gestureEdit = false, onImageLayout, onBoxPos,
   showHeart = false, heartEdit = false, slotId, magazineType,
   autoFocusHeart = false, onHeartFocused,
@@ -92,6 +99,10 @@ export default function ProductCell({
   textPos?: BoxPos;
   pricePos?: BoxPos;
   heartPos?: BoxPos;
+  /** Stil preț rezolvat (pagină ± override casuță) */
+  priceStyle?: ResolvedPriceStyle;
+  /** Linia „1 kg = … lei” — doar dacă e bifat pe casuță */
+  showUnitPrice?: boolean;
   gestureEdit?: boolean;
   onImageLayout?: (change: ImageLayoutChange) => void;
   onBoxPos?: (kind: BoxKind, pos: BoxPos) => void;
@@ -131,13 +142,14 @@ export default function ProductCell({
   } | null>(null);
 
   const dragRef = useRef<{
-    mode: 'pan' | 'box';
+    mode: 'pan' | 'box' | 'resize';
     target: GestureTarget;
     pointerId: number;
     startX: number;
     startY: number;
     imgOrig?: ImageLayout;
     boxOrig?: BoxPos;
+    edge?: TextResizeEdge;
     areaW: number;
     areaH: number;
     boxWPct: number;
@@ -250,7 +262,14 @@ export default function ProductCell({
       const visW = box && cell ? (box.width / cell.width) * 100 : (cur.kind === 'heart' ? 18 : 40);
       const visH = box && cell ? (box.height / cell.height) * 100 : (cur.kind === 'heart' ? 18 : 20);
       const factor = scale / prevS;
-      boxCb(cur.kind, clampBoxPos(orig.x, orig.y, visW * factor, visH * factor, scale));
+      boxCb(cur.kind, clampBoxPos(
+        orig.x,
+        orig.y,
+        visW * factor,
+        visH * factor,
+        scale,
+        cur.kind === 'text' && orig.w != null ? { w: orig.w } : undefined,
+      ));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
@@ -356,6 +375,14 @@ export default function ProductCell({
         return;
       }
 
+      if (drag.mode === 'resize' && drag.boxOrig && drag.edge && onBoxPosRef.current) {
+        if (drag.target.kind !== 'text') return;
+        const dx = (e.clientX - drag.startX) / drag.areaW * 100;
+        const dy = (e.clientY - drag.startY) / drag.areaH * 100;
+        onBoxPosRef.current('text', resizeTextBox(drag.boxOrig, drag.edge, dx, dy));
+        return;
+      }
+
       if (drag.mode === 'box' && drag.boxOrig && onBoxPosRef.current) {
         const kind = drag.target.kind;
         if (kind !== 'text' && kind !== 'price' && kind !== 'heart') return;
@@ -367,6 +394,7 @@ export default function ProductCell({
           drag.boxWPct,
           drag.boxHPct,
           drag.boxOrig.scale ?? 1,
+          drag.boxOrig.w != null ? { w: drag.boxOrig.w } : undefined,
         ));
       }
     };
@@ -421,10 +449,42 @@ export default function ProductCell({
     dragRef.current = null;
   };
 
+  const beginTextResize = (edge: TextResizeEdge, e: React.PointerEvent) => {
+    if (!gestureEdit || e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setActive({ kind: 'text' });
+    activeRef.current = { kind: 'text' };
+    pendingRef.current = null;
+    const cell = cellRef.current?.getBoundingClientRect();
+    const box = textRef.current?.getBoundingClientRect();
+    const cur = tPosRef.current;
+    const w = cur.w != null
+      ? cur.w
+      : (box && cell ? (box.width / cell.width) * 100 : 40);
+    /* Fără h fix — înălțimea rămâne după text. */
+    const { h: _ignoreH, ...curNoH } = cur;
+    void _ignoreH;
+    dragRef.current = {
+      mode: 'resize',
+      target: { kind: 'text' },
+      edge,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      boxOrig: { ...curNoH, w },
+      areaW: cell?.width || 1,
+      areaH: cell?.height || 1,
+      boxWPct: w,
+      boxHPct: box && cell ? (box.height / cell.height) * 100 : 22,
+    };
+  };
+
   const isImgActive = (i: number) => active?.kind === 'img' && active.index === i;
   const isTextActive = active?.kind === 'text';
   const isPriceActive = active?.kind === 'price';
   const isHeartActive = active?.kind === 'heart';
+  const textSized = tPos.w != null;
 
   const textBlock = (
     <div
@@ -434,11 +494,13 @@ export default function ProductCell({
         + (gestureEdit ? ' is-gesture-target' : '')
         + (isTextActive ? ' is-active' : '')
         + (gestureEdit && active && !isTextActive ? ' is-idle' : '')
+        + (textSized ? ' is-sized' : '')
       }
       style={{
         left: `${tPos.x}%`,
         top: `${tPos.y}%`,
         ['--box-zoom' as string]: String(tPos.scale ?? 1),
+        ...(tPos.w != null ? { width: `${tPos.w}%`, maxWidth: 'none', height: 'auto' } : {}),
       }}
       onPointerDown={gestureEdit ? (e) => beginPending({ kind: 'text' }, 'box', e) : undefined}
     >
@@ -446,15 +508,35 @@ export default function ProductCell({
       {title ? <p className="mag-cell__title">{title}</p> : null}
       {p.size ? <p className="mag-cell__detail">{p.size}</p> : null}
       {p.variants ? <p className="mag-cell__detail">{p.variants}</p> : null}
-      {unitLine ? <p className="mag-cell__detail mag-cell__detail--unit">{unitLine}</p> : null}
+      {showUnitPrice && unitLine
+        ? <p className="mag-cell__detail mag-cell__detail--unit">{unitLine}</p>
+        : null}
+      {gestureEdit && isTextActive ? (
+        <>
+          {(['e', 'w'] as TextResizeEdge[]).map((edge) => (
+            <button
+              key={edge}
+              type="button"
+              className={`mag-cell__text-handle mag-cell__text-handle--${edge}`}
+              aria-label={
+                edge === 'e' ? 'Redimensionează lățimea dreapta' : 'Redimensionează lățimea stânga'
+              }
+              onPointerDown={(e) => beginTextResize(edge, e)}
+            />
+          ))}
+        </>
+      ) : null}
     </div>
   );
 
+  const resolvedPrice = priceStyle || DEFAULT_PAGE_PRICE_STYLE;
   const priceBlock = (
     <div
       ref={priceRef}
       className={
         'mag-cell__price'
+        + ` mag-cell__price--digit-${resolvedPrice.digitStyle}`
+        + ` mag-cell__price--look-${resolvedPrice.look}`
         + (gestureEdit ? ' is-gesture-target' : '')
         + (isPriceActive ? ' is-active' : '')
         + (gestureEdit && active && !isPriceActive ? ' is-idle' : '')
@@ -463,6 +545,7 @@ export default function ProductCell({
         left: `${pPos.x}%`,
         top: `${pPos.y}%`,
         ['--box-zoom' as string]: String(pPos.scale ?? 1),
+        ...priceStyleCssVars(resolvedPrice),
       }}
       onPointerDown={gestureEdit ? (e) => beginPending({ kind: 'price' }, 'box', e) : undefined}
     >

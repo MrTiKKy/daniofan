@@ -28,12 +28,9 @@ export interface FeaturedSlot {
   item: PageItem;
 }
 
-function isCatalogActiveOn(catalog: Catalog, now: Date): boolean {
-  const start = parseDay(catalog.start);
-  const end = parseDay(catalog.end);
-  end.setHours(23, 59, 59, 999);
-  const t = now.getTime();
-  return t >= start.getTime() && t <= end.getTime();
+/** Momentan: fără fereastră de date — revista publicată e eligibilă. */
+function isCatalogActiveOn(_catalog: Catalog, _now: Date): boolean {
+  return true;
 }
 
 function parseDay(iso: string): Date {

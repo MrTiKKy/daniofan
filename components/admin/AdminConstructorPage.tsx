@@ -9,6 +9,7 @@ import {
   DEFAULT_GRID,
   MAGAZINE_KINDS,
   magazineAdminSectionTitle,
+  isMagazineKind,
   type Catalog,
   type CatalogPage,
   type MagazineKind,
@@ -16,6 +17,7 @@ import {
 import { getCatalog, saveCatalog } from '@/lib/catalogStore';
 import { uid } from '@/lib/autoLayout';
 import {
+  clearMagazineBuilderDraft,
   loadMagazineBuilderDraft,
   saveMagazineBuilderDraft,
 } from '@/lib/magazineBuilderStore';
@@ -55,15 +57,31 @@ export default function AdminConstructorPage() {
   useEffect(() => {
     let alive = true;
     DF.load().then((d) => { if (alive) setData(d); });
-    const draft = loadMagazineBuilderDraft();
-    if (draft?.kind) setKind(draft.kind);
-    if (draft?.catalogId) setCatalogId(draft.catalogId);
-    if (draft) {
-      setMeta({
-        title: draft.title || '',
-        end: draft.end || '',
-        permanent: !!draft.permanent,
-      });
+
+    const params = new URLSearchParams(window.location.search);
+    const isNew = params.get('new') === '1';
+    const kindParam = params.get('kind');
+
+    if (isNew) {
+      clearMagazineBuilderDraft();
+      setCatalogId(undefined);
+      setMeta({ title: '', end: '', permanent: false });
+      if (kindParam && isMagazineKind(kindParam)) setKind(kindParam);
+      /* Curăță query ca un refresh să nu șteargă din nou draft-ul. */
+      window.history.replaceState({}, '', '/admin/constructor');
+    } else {
+      const draft = loadMagazineBuilderDraft();
+      if (draft?.kind) setKind(draft.kind);
+      if (draft?.catalogId) setCatalogId(draft.catalogId);
+      if (draft) {
+        setMeta({
+          title: draft.title || '',
+          end: draft.end || '',
+          permanent: !!draft.permanent,
+        });
+      } else if (kindParam && isMagazineKind(kindParam)) {
+        setKind(kindParam);
+      }
     }
     return () => { alive = false; };
   }, []);
@@ -111,43 +129,63 @@ export default function AdminConstructorPage() {
     setBusy(true);
     try {
       const start = isoToday();
-      /* Reia același draft pe Postgres dacă există și încă e draft; altfel id nou. */
+      /* Nu permite end < start (altfel revista publicată nu apare pe home). */
+      const end = values.end && values.end >= start ? values.end : (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 7);
+        const p = (n: number) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+      })();
+      /* Reia același draft pe Postgres dacă există și încă e draft; altfel id nou.
+         La catalog nou: remint id-urile foilor — altfel INSERT lovește PK-ul foilor
+         din revista publicată (aceleași page-*). */
       let id = catalogId || uid('cat');
+      let pagesToSave = withGrid;
       if (catalogId) {
         const existing = await getCatalog(catalogId);
         if (!existing || existing.status === 'published' || existing.status === 'archived') {
           id = uid('cat');
+          pagesToSave = withGrid.map((p) => ({ ...p, id: uid('page') }));
         }
+      } else {
+        pagesToSave = withGrid.map((p) => ({ ...p, id: uid('page') }));
       }
 
       const catalog: Catalog = {
         id,
         title: values.title,
         start,
-        end: values.end,
+        end,
         theme: 'standard',
         status: 'draft',
         kind,
         permanent: values.permanent,
-        grid: { ...(withGrid[0].grid || DEFAULT_GRID) },
-        pages: withGrid,
+        grid: { ...(pagesToSave[0].grid || DEFAULT_GRID) },
+        pages: pagesToSave,
       };
       await saveCatalog(catalog);
 
-      saveMagazineBuilderDraft(withGrid, activeIndex, {
+      saveMagazineBuilderDraft(pagesToSave, activeIndex, {
         kind,
         title: values.title,
         start,
-        end: values.end,
+        end,
         permanent: values.permanent,
         catalogId: id,
       });
       setCatalogId(id);
-      setMeta({ title: values.title, end: values.end, permanent: values.permanent });
+      setMeta({ title: values.title, end, permanent: values.permanent });
       setModalOpen(false);
       flash(`✓ Salvată ca draft pe „${magazineAdminSectionTitle(kind)}”. Publică din Reviste.`);
     } catch (e) {
-      flash(e instanceof Error ? e.message : 'Salvarea a eșuat.', true);
+      const raw = e instanceof Error ? e.message : 'Salvarea a eșuat.';
+      /* Drizzle bagă tot payload-ul în mesaj — taie ca să nu umple ecranul. */
+      const msg = raw.length > 220
+        ? (raw.includes('duplicate key') || /unique|pkey/i.test(raw)
+          ? 'Conflict la salvare (foi deja existente). Încearcă din nou.'
+          : `${raw.slice(0, 180)}…`)
+        : raw;
+      flash(msg, true);
     } finally {
       setBusy(false);
     }
@@ -165,33 +203,30 @@ export default function AdminConstructorPage() {
 
   return (
     <>
-      <header className="a-top a-top--compact">
+      <header className="a-top a-top--builder">
         <div className="a-in a-in--wide">
-          <div className="a-brand">
+          <Link className="a-brand" href="/admin" aria-label="Panou angajați">
             <span className="mini-logo"><BrandLogo size="sm" /></span>
-            <span className="a-title">Constructor revista</span>
-          </div>
+          </Link>
           <div className="a-top-actions a-top-actions--compact">
             <label className="a-kind-pick">
-              <span className="sr-only">Tip revistă</span>
+              <span className="sr-only">Tip magazin</span>
               <select
+                className="a-hbar a-hbar--soft"
                 value={kind}
                 onChange={(e) => onKindChange(e.target.value as MagazineKind)}
-                aria-label="Tip revistă"
+                aria-label="Tip magazin"
               >
                 {MAGAZINE_KINDS.map((k) => (
                   <option key={k} value={k}>{magazineAdminSectionTitle(k)}</option>
                 ))}
               </select>
             </label>
-            <button type="button" className="btn a-chip a-chip--publish" onClick={openSaveModal}>
+            <button type="button" className="a-hbar a-hbar--solid" onClick={openSaveModal}>
               Salvează
             </button>
-            <Link className="btn a-chip a-chip--open" href="/admin/reviste">
-              Reviste →
-            </Link>
-            <Link className="btn a-chip a-chip--exit" href="/admin">
-              ← Ieși
+            <Link className="a-hbar a-hbar--soft" href="/admin/reviste">
+              ← Reviste
             </Link>
           </div>
         </div>

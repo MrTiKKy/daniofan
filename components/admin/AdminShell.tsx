@@ -10,7 +10,7 @@ interface Props {
   active: AdminNav;
   /** Sub-tab activ în Setări (extensibil). */
   settingsTab?: SettingsTab;
-  title?: string;
+  /** Acțiuni opționale în header (lângă Constructor). */
   headerActions?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -29,26 +29,21 @@ const NAV: { id: AdminNav; label: string; href: string }[] = [
 export default function AdminShell({
   active,
   settingsTab = 'magazine',
-  title = 'Panou angajați',
   headerActions,
   children,
 }: Props) {
   return (
-    <>
+    <div className="a-app">
       <header className="a-top">
-        <div className="a-in">
-          <div className="a-brand">
+        <div className="a-in a-in--shell">
+          <Link className="a-brand" href="/admin" aria-label="Panou angajați">
             <span className="mini-logo"><BrandLogo size="sm" /></span>
-            <span className="a-title">{title}</span>
-          </div>
+          </Link>
           <div className="a-top-actions">
             {headerActions}
-            <Link className="btn a-constructor" href="/admin/constructor">
-              Constructor revista
+            <Link className="a-hbar a-hbar--solid" href="/admin/constructor">
+              Constructor
             </Link>
-            <a className="btn a-open" href="/" target="_blank" rel="noopener">
-              Vezi pliantul clientului →
-            </a>
           </div>
         </div>
       </header>
@@ -69,6 +64,16 @@ export default function AdminShell({
               </Link>
             ))}
           </nav>
+          <div className="a-sidebar__foot">
+            <a
+              className="a-sidebar__client"
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Vezi pliantul →
+            </a>
+          </div>
         </aside>
 
         <div className="a-shell__body">
@@ -89,6 +94,6 @@ export default function AdminShell({
           <main className="a-main a-main--shell">{children}</main>
         </div>
       </div>
-    </>
+    </div>
   );
 }

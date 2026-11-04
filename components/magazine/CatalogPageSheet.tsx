@@ -1,7 +1,6 @@
 /* Foaie din constructor — același aspect ca preview (fără chrome de editare). */
 'use client';
 import type { CatalogPage, MagazineKind } from '@/lib/catalogTypes';
-import { isMessageItem } from '@/lib/messageBlock';
 import {
   pageHeaderClass,
   resolvePageChrome,
@@ -14,8 +13,9 @@ import {
   resolvePricePos,
   resolveTextPos,
 } from '@/lib/pageItemDisplay';
+import { resolveItemPriceStyle, resolvePagePriceStyle } from '@/lib/priceStyle';
 import type { Product } from '@/lib/types';
-import MessageBlock from '@/components/builder/MessageBlock';
+import PageDecorLayer from '@/components/builder/PageDecorLayer';
 import ProductCell from './ProductCell';
 
 export type CatalogPageHandlers = {
@@ -39,6 +39,7 @@ export default function CatalogPageSheet({ page, products, handlers, eager }: Pr
   const productsById = new Map(products.map((p) => [p.id, p]));
   const chrome = resolvePageChrome(page);
   const header = chrome.header;
+  const pagePriceStyle = resolvePagePriceStyle(chrome);
   const showHeader = !!(header?.enabled && header.text.trim());
 
   return (
@@ -66,6 +67,7 @@ export default function CatalogPageSheet({ page, products, handlers, eager }: Pr
       ) : null}
 
       <div className="mag-catalog__grid-wrap">
+        <PageDecorLayer items={page.decor || []} />
         <div
           className="mag-catalog__items"
           style={{
@@ -74,12 +76,12 @@ export default function CatalogPageSheet({ page, products, handlers, eager }: Pr
           }}
         >
           {page.items.map((item) => {
-            const isMsg = isMessageItem(item);
-            const base = !isMsg && item.productId ? productsById.get(item.productId) : null;
-            if (!isMsg && !base) return null;
-            const view = base ? displayAsProduct(base, item) : null;
-            const imgs = base ? displayImages(item, base) : [];
-            const layouts = base ? normalizeImageLayouts(imgs, item.display?.imageLayouts) : [];
+            if (item.type !== 'product' || !item.productId) return null;
+            const base = productsById.get(item.productId);
+            if (!base) return null;
+            const view = displayAsProduct(base, item);
+            const imgs = displayImages(item, base);
+            const layouts = normalizeImageLayouts(imgs, item.display?.imageLayouts);
             const cellOverflow = !!(item.display?.overflow || item.overflow);
             const cellVariant = (item.w * item.h >= 4 || grid.cols <= 2) ? 'std' : 'sm';
             const textPos = resolveTextPos(item.display);
@@ -89,37 +91,35 @@ export default function CatalogPageSheet({ page, products, handlers, eager }: Pr
             return (
               <div
                 key={item.id}
-                className={'mag-catalog__block' + (isMsg ? ' is-msg' : '')}
+                className="mag-catalog__block"
                 style={{
                   gridColumn: `${item.col + 1} / span ${item.w}`,
                   gridRow: `${item.row + 1} / span ${item.h}`,
                 }}
               >
-                {isMsg ? (
-                  <MessageBlock item={item} />
-                ) : view ? (
-                  <ProductCell
-                    p={view}
-                    variant={cellVariant}
-                    interactive={!!handlers?.onProduct}
-                    eager={eager}
-                    images={imgs}
-                    imageLayouts={layouts}
-                    overflow={cellOverflow}
-                    priceLeft={!!item.display?.priceLeft}
-                    textPos={textPos}
-                    pricePos={pricePos}
-                    heartPos={heartPos}
-                    onProduct={handlers?.onProduct}
-                    highlight={
-                      handlers?.highlightId === item.id
-                      || handlers?.highlightId === view.id
-                    }
-                    showHeart={!!handlers?.showHeart && !!handlers?.magazineType}
-                    slotId={item.id}
-                    magazineType={handlers?.magazineType}
-                  />
-                ) : null}
+                <ProductCell
+                  p={view}
+                  variant={cellVariant}
+                  interactive={!!handlers?.onProduct}
+                  eager={eager}
+                  images={imgs}
+                  imageLayouts={layouts}
+                  overflow={cellOverflow}
+                  priceLeft={!!item.display?.priceLeft}
+                  showUnitPrice={!!item.display?.showUnitPrice}
+                  textPos={textPos}
+                  pricePos={pricePos}
+                  heartPos={heartPos}
+                  priceStyle={resolveItemPriceStyle(pagePriceStyle, item.display)}
+                  onProduct={handlers?.onProduct}
+                  highlight={
+                    handlers?.highlightId === item.id
+                    || handlers?.highlightId === view.id
+                  }
+                  showHeart={!!handlers?.showHeart && !!handlers?.magazineType}
+                  slotId={item.id}
+                  magazineType={handlers?.magazineType}
+                />
               </div>
             );
           })}

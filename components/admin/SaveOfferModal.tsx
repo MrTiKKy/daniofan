@@ -1,5 +1,5 @@
 'use client';
-/* Popup la salvare: denumire ofertă, valabilitate, opțiune permanentă. */
+/* Popup la salvare: denumire ofertă (valabilitatea pe date e dezactivată momentan). */
 import { useState } from 'react';
 
 export type SaveOfferValues = {
@@ -21,7 +21,7 @@ const DEFAULT_TITLE = 'Ofertele săptămânii';
 
 function defaultEndIso(): string {
   const d = new Date();
-  d.setDate(d.getDate() + 7);
+  d.setDate(d.getDate() + 30);
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
@@ -55,18 +55,13 @@ function SaveOfferModalInner({
   onConfirm,
 }: Omit<Props, 'open'>) {
   const [title, setTitle] = useState(initial?.title?.trim() || '');
-  const [end, setEnd] = useState(initial?.end || defaultEndIso());
-  const [permanent, setPermanent] = useState(!!initial?.permanent);
-  const [err, setErr] = useState('');
 
   const submit = () => {
-    const t = title.trim() || DEFAULT_TITLE;
-    if (!permanent && !end) {
-      setErr('Alege data până la care e valabilă oferta.');
-      return;
-    }
-    setErr('');
-    onConfirm({ title: t, end: permanent ? (end || defaultEndIso()) : end, permanent });
+    onConfirm({
+      title: title.trim() || DEFAULT_TITLE,
+      end: defaultEndIso(),
+      permanent: true,
+    });
   };
 
   return (
@@ -95,26 +90,9 @@ function SaveOfferModalInner({
               autoFocus
             />
           </label>
-          <label className={'a-save-modal__field' + (permanent ? ' is-dim' : '')}>
-            <span>Valabilă până la</span>
-            <input
-              type="date"
-              value={end}
-              onChange={(e) => setEnd(e.target.value)}
-              disabled={permanent}
-            />
-          </label>
-          <label className="a-save-modal__chk">
-            <input
-              type="checkbox"
-              checked={permanent}
-              onChange={(e) => setPermanent(e.target.checked)}
-            />
-            <span>
-              Marchează ca permanentă (la publicare din Reviste rămâne pe site până o retragi)
-            </span>
-          </label>
-          {err ? <p className="a-save-modal__err">{err}</p> : null}
+          <p className="help" style={{ margin: 0 }}>
+            La publicare din Reviste, revista apare pe site până o retragi.
+          </p>
         </div>
         <div className="a-save-modal__foot">
           <button type="button" className="btn a-ghost" disabled={busy} onClick={onClose}>

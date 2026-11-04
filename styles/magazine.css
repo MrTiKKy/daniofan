@@ -101,7 +101,8 @@ body[data-theme="craciun"] .mag__stage{--viewer-bg:color-mix(in srgb,var(--band-
   width:100%;aspect-ratio:1 / 1.414;position:relative;background:#fff;border:0;border-radius:4px;
   overflow:hidden;box-shadow:0 10px 28px rgba(0,0,0,.38);
 }
-.mag-page--catalog .mag-page__sheet{overflow:visible}
+/* catalog: foaia taie tot ce iese (forme bleed etc.) — ca pe hârtie */
+.mag-page--catalog .mag-page__sheet{overflow:hidden}
 .mag-page--single .mag-page__sheet{border-radius:4px}
 
 /* peek hint */
@@ -147,7 +148,7 @@ body[data-theme="craciun"] .mag__stage{--viewer-bg:color-mix(in srgb,var(--band-
 .mag-page__inner{position:absolute;inset:0;padding:1.6cqw 1.8cqw 6.8cqw;display:flex;flex-direction:column;font-family:var(--body);color:var(--ink);
   overflow:hidden;background:#fff}
 .mag-page__inner.has-page-header{padding-top:1.2cqw}
-.mag-page__inner--catalog{overflow:visible}
+.mag-page__inner--catalog{overflow:hidden}
 .mag-page__meta{position:absolute;left:1.8cqw;right:1.8cqw;bottom:1.6cqw;display:flex;align-items:center;justify-content:space-between;gap:1cqw;pointer-events:none;z-index:2}
 .mag-page__sgr{font-family:var(--body);font-weight:600;font-size:1.7cqw;color:#555}
 .mag-page__folio{font-family:var(--cond);font-weight:800;font-size:2.2cqw;color:#666}
@@ -157,7 +158,7 @@ body[data-theme="craciun"] .mag__stage{--viewer-bg:color-mix(in srgb,var(--band-
   --ph-bar:#C6E800;--ph-title:#1B5E20;--ph-badge:var(--red);--ph-badge-ink:#111;
   --ph-sub-bg:#fff;--ph-sub-fg:#1B5E20;--ph-shadow:rgba(0,0,0,.14);
   flex:none;display:flex;align-items:flex-end;gap:0;margin:0 0 1.6cqw;padding:.4cqw .2cqw .2cqw;
-  box-sizing:border-box;position:relative;min-height:0;background:transparent;border:0;border-radius:0}
+  box-sizing:border-box;position:relative;z-index:5;min-height:0;background:transparent;border:0;border-radius:0}
 .mag-page-header__badge{flex:none;position:relative;z-index:3;width:11.5cqw;height:11.5cqw;margin:0 -.6cqw -.4cqw 0;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15cqw;
   background:var(--ph-badge);color:#fff;border:0.45cqw solid #fff;border-radius:28% 32% 30% 34% / 32% 28% 36% 30%;
@@ -186,6 +187,16 @@ body[data-theme="craciun"] .mag__stage{--viewer-bg:color-mix(in srgb,var(--band-
 .mag-catalog{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;position:relative}
 .mag-catalog__grid-wrap{position:relative;flex:1;min-height:0;width:100%;height:100%;
   --mag-gap-r:1cqw;--mag-gap-c:1.4cqw;overflow:visible}
+/* forme pe planul din spate — sub produse */
+.page-decor{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:visible}
+.page-decor__item{position:absolute;box-sizing:border-box;transform-origin:center center;
+  container-type:size;container-name:pagedecor}
+.page-decor__item.is-text{display:flex;align-items:center;justify-content:center}
+.page-decor__svg{display:block;width:100%;height:100%;overflow:visible}
+.page-decor__text{margin:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  text-align:center;line-height:1.1;letter-spacing:.02em;word-break:break-word;
+  font-size:min(42cqh,18cqw);padding:4%;box-sizing:border-box;pointer-events:none;user-select:none}
+.page-decor__handle{display:none}
 .mag-catalog__items{position:absolute;inset:0;z-index:2;display:grid;gap:var(--mag-gap-r) var(--mag-gap-c);
   width:100%;height:100%;min-height:0}
 .mag-catalog__block{position:relative;z-index:3;min-width:0;min-height:0;overflow:hidden;
@@ -271,9 +282,11 @@ body[data-theme="craciun"] .mag__stage{--viewer-bg:color-mix(in srgb,var(--band-
   transition:opacity .12s ease,outline-color .12s ease,box-shadow .12s ease}
 .mag-cell.is-gesture .mag-cell__text,
 .mag-cell.is-gesture .mag-cell__price{max-width:100%}
-.mag-cell.is-gesture .mag-cell__text.is-active,
 .mag-cell.is-gesture .mag-cell__price.is-active{cursor:grab;outline:2px solid var(--blue);outline-offset:0;
   box-shadow:0 0 0 2px rgba(21,89,224,.25);z-index:6}
+.mag-cell.is-gesture .mag-cell__text.is-active{
+  cursor:grab;outline:2px dashed #111;outline-offset:0;
+  box-shadow:none;z-index:6;overflow:visible;height:auto}
 .mag-cell.is-gesture .mag-cell__text.is-active:active,
 .mag-cell.is-gesture .mag-cell__price.is-active:active{cursor:grabbing}
 .mag-cell.is-gesture .mag-cell__text.is-idle,
@@ -282,20 +295,34 @@ body[data-theme="craciun"] .mag__stage{--viewer-bg:color-mix(in srgb,var(--band-
 .mag-cell--price-left .mag-cell__price{text-align:left}
 .mag-cell--price-left .mag-cell__badge-row,.mag-cell--price-left .mag-cell__now{justify-content:flex-start}
 /* text + preț: poziții absolute în chenar (ca pe oferta Lidl) */
-.mag-cell__text{position:absolute;z-index:2;min-width:0;max-width:min(72%,100%);width:max-content;text-align:left;
+.mag-cell__text{position:absolute;z-index:2;min-width:0;max-width:min(46%,100%);width:max-content;height:auto;text-align:left;
   padding:0;margin:0;box-sizing:border-box;overflow:visible;pointer-events:none;
   zoom:var(--box-zoom,1)}
-.mag-cell.is-gesture .mag-cell__text{pointer-events:auto}
+.mag-cell__text.is-sized{max-width:none;height:auto}
+.mag-cell.is-gesture .mag-cell__text{pointer-events:auto;overflow:visible;height:auto}
+/* mânere resize lățime — doar stânga/dreapta; înălțimea = conținut */
+.mag-cell__text-handle{
+  position:absolute;z-index:8;width:14px;height:14px;padding:0;margin:0;
+  border:2px solid #111;border-radius:50%;background:var(--yellow,#FFD200);
+  box-shadow:0 1px 2px rgba(0,0,0,.18);pointer-events:auto;touch-action:none;
+  -webkit-tap-highlight-color:transparent
+}
+.mag-cell__text-handle--e{right:0;top:50%;transform:translate(50%,-50%);cursor:ew-resize}
+.mag-cell__text-handle--w{left:0;top:50%;transform:translate(-50%,-50%);cursor:ew-resize}
+.mag-cell__text-handle:focus-visible{outline:2px solid var(--blue,#1559E0);outline-offset:2px}
 .mag-cell__brand{margin:0;font-family:var(--cond);font-weight:900;font-size:3.8cqw;line-height:1.05;text-transform:uppercase;
-  letter-spacing:.02em;color:var(--ink);overflow:visible;word-break:normal;overflow-wrap:break-word;hyphens:manual}
+  letter-spacing:.02em;color:var(--ink);overflow:hidden;word-break:break-word;overflow-wrap:anywhere;hyphens:auto;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .mag-cell--sm .mag-cell__brand{font-size:3.1cqw}
 .mag-cell--hero .mag-cell__brand{font-size:5cqw}
 .mag-cell__title{margin:.15cqw 0 0;font-family:var(--body);font-weight:600;font-size:2.5cqw;line-height:1.15;color:var(--ink);
-  overflow:visible;word-break:normal;overflow-wrap:break-word;white-space:normal}
+  overflow:hidden;word-break:break-word;overflow-wrap:anywhere;white-space:normal;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
 .mag-cell--sm .mag-cell__title{font-size:2.2cqw}
 .mag-cell--hero .mag-cell__title{font-size:3.1cqw}
 .mag-cell__detail{margin:.2cqw 0 0;font-family:var(--body);font-weight:500;font-size:2.1cqw;line-height:1.2;color:#444;
-  white-space:normal;overflow:visible;word-break:normal;overflow-wrap:break-word}
+  white-space:normal;overflow:hidden;word-break:break-word;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .mag-cell--sm .mag-cell__detail{font-size:1.85cqw}
 .mag-cell__detail--unit{color:#666;font-size:1.85cqw}
 .mag-cell__price{position:absolute;z-index:2;display:flex;flex-direction:column;align-items:flex-end;
@@ -321,16 +348,68 @@ body[data-theme="craciun"] .mag__stage{--viewer-bg:color-mix(in srgb,var(--band-
 .mag-cell.is-gesture .mag-cell__heart.is-active:active{cursor:grabbing}
 .mag-cell.is-gesture .mag-cell__heart.is-idle{opacity:.4;border-color:transparent;background:transparent}
 .mag-cell__badge-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:.45cqw;margin-bottom:.3cqw;width:100%}
-.mag-cell__badge{display:inline-block;background:var(--red);color:#fff;font-family:var(--cond);font-weight:900;
+.mag-cell__badge{display:inline-block;background:var(--promo-price,var(--red));color:#fff;font-family:var(--cond);font-weight:900;
   font-size:2.2cqw;line-height:1;padding:.4cqw .6cqw;border-radius:.35cqw;letter-spacing:.02em}
 .mag-cell__badge--special{background:var(--blue);font-size:1.8cqw;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mag-cell--hero .mag-cell__badge{font-size:2.8cqw;padding:.45cqw .75cqw}
 .mag-cell__was{font-family:var(--cond);font-weight:700;font-size:2.3cqw;color:#666;text-decoration:line-through;text-decoration-thickness:.18cqw}
 .mag-cell--hero .mag-cell__was{font-size:2.9cqw}
-.mag-cell__now{display:inline-flex;align-items:flex-start;justify-content:flex-end;color:var(--red);line-height:.86;
+.mag-cell__now{display:inline-flex;align-items:flex-start;justify-content:flex-end;
+  color:var(--promo-price,var(--red));line-height:.86;
   font-family:var(--cond);font-weight:900;letter-spacing:-.02em}
 .mag-cell__lei{font-size:8.6cqw}
 .mag-cell__ban{font-size:4.2cqw;margin-top:.1em;letter-spacing:0}
+/* Stil cifră — același font; clasic / oblic / bold (umflat) */
+.mag-cell__price--digit-clasic .mag-cell__now,
+.mag-cell__price--digit-oblic .mag-cell__now,
+.mag-cell__price--digit-bold .mag-cell__now{
+  font-family:var(--cond);font-weight:900;letter-spacing:-.02em;font-style:normal}
+.mag-cell__price--digit-oblic .mag-cell__now{font-style:italic;transform:skewX(-6deg);transform-origin:right center}
+/* Bold = preț clar umflat (nu doar +câteva %) */
+.mag-cell__price--digit-bold .mag-cell__now{
+  font-weight:900;letter-spacing:-.07em;transform:scale(1.22);transform-origin:right center;
+  text-shadow:0 .15cqw 0 rgba(0,0,0,.2)}
+.mag-cell__price--digit-bold .mag-cell__lei{font-size:11.2cqw}
+.mag-cell__price--digit-bold .mag-cell__ban{font-size:5.4cqw;margin-top:.05em}
+.mag-cell--sm .mag-cell__price--digit-bold .mag-cell__lei{font-size:8.8cqw}
+.mag-cell--sm .mag-cell__price--digit-bold .mag-cell__ban{font-size:4.2cqw}
+.mag-cell--hero .mag-cell__price--digit-bold .mag-cell__lei{font-size:14.5cqw}
+.mag-cell--hero .mag-cell__price--digit-bold .mag-cell__ban{font-size:6.8cqw}
+/* —— Stil preț (look) —— */
+.mag-cell__price--look-clasic .mag-cell__now,
+.mag-cell__price--look-default .mag-cell__now,
+.mag-cell__price--look-shadow .mag-cell__now{
+  filter:drop-shadow(0 .28cqw .4cqw rgba(0,0,0,.28))}
+/* Plat — fără umbră */
+.mag-cell__price--look-plat .mag-cell__now{filter:none;text-shadow:none}
+/* Contour — contur alb pe cifră */
+.mag-cell__price--look-contour .mag-cell__lei,
+.mag-cell__price--look-contour .mag-cell__ban{
+  -webkit-text-stroke:.07cqw #fff;paint-order:stroke fill;
+  text-shadow:0 .12cqw 0 rgba(0,0,0,.15)}
+/* Stampilă — cifră pe pastilă (proba; poate ieși) */
+.mag-cell__price--look-stampila .mag-cell__now{
+  padding:.35cqw .7cqw .45cqw;border-radius:.55cqw;
+  background:var(--promo-price,var(--red));color:#fff;
+  box-shadow:0 .2cqw 0 rgba(0,0,0,.2)}
+.mag-cell__price--look-stampila .mag-cell__lei,
+.mag-cell__price--look-stampila .mag-cell__ban{color:#fff}
+/* Dublu relief — mai ieșit (highlight sus + umbră jos) */
+.mag-cell__price--look-relief .mag-cell__lei,
+.mag-cell__price--look-relief .mag-cell__ban{
+  text-shadow:
+    0 -.12cqw 0 rgba(255,255,255,.75),
+    .08cqw .08cqw 0 rgba(255,255,255,.35),
+    0 .28cqw 0 rgba(0,0,0,.45),
+    0 .45cqw .2cqw rgba(0,0,0,.28),
+    0 .65cqw .7cqw rgba(0,0,0,.2)}
+/* Negativ — cifră deschisă pe bandă închisă */
+.mag-cell__price--look-negativ .mag-cell__now{
+  padding:.4cqw .75cqw .5cqw;border-radius:.45cqw;
+  background:#111;color:#fff;
+  box-shadow:0 .2cqw 0 rgba(0,0,0,.25)}
+.mag-cell__price--look-negativ .mag-cell__lei,
+.mag-cell__price--look-negativ .mag-cell__ban{color:#fff}
 .mag-cell--sm .mag-cell__lei{font-size:6.8cqw}
 .mag-cell--sm .mag-cell__ban{font-size:3.4cqw}
 .mag-cell--hero .mag-cell__lei{font-size:11.5cqw}

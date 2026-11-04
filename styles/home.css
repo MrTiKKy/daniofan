@@ -26,14 +26,23 @@ a{color:inherit}
 .home-header__call:focus-visible,.home-mag__btn:focus-visible,.home-mag__cover-link:focus-visible{
   outline:3px solid var(--yellow);outline-offset:3px}
 
-/* —— bandă urgență —— */
-.home-urgency{background:var(--yellow);color:#111;padding:10px 14px;text-align:center;
-  box-shadow:0 3px 0 var(--yellow-deep)}
-.home-urgency.is-last{background:var(--red);color:#fff;box-shadow:0 3px 0 var(--red-dark)}
-.home-urgency__text{margin:0;font:800 18px/1.25 var(--cond);text-transform:uppercase;letter-spacing:.02em;
-  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 8px}
-.home-urgency__sub{font-weight:900}
-.home-urgency.is-last .home-urgency__sub{color:var(--yellow)}
+/* —— bandă ticker (mesaj derulant) —— */
+.home-urgency{background:var(--yellow);color:#111;padding:0;text-align:left;
+  box-shadow:0 3px 0 var(--yellow-deep);overflow:hidden}
+.home-urgency--ticker{min-height:44px;display:flex;align-items:center}
+.home-urgency__track{display:flex;width:max-content;will-change:transform;
+  animation:home-ticker 28s linear infinite}
+.home-urgency__marquee{flex:none;padding:10px 0;font:800 17px/1.25 var(--cond);
+  text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;padding-right:2.5em}
+@keyframes home-ticker{
+  from{transform:translateX(0)}
+  to{transform:translateX(-50%)}
+}
+@media (prefers-reduced-motion:reduce){
+  .home-urgency__track{animation:none;width:100%;justify-content:center}
+  .home-urgency__marquee{padding-right:0;white-space:normal;text-align:center;max-width:100%}
+  .home-urgency__marquee + .home-urgency__marquee{display:none}
+}
 
 /* —— card revistă —— */
 .home-mag{display:flex;flex-direction:column;align-items:stretch;gap:10px}
@@ -83,7 +92,7 @@ a{color:inherit}
   .home__main{padding:20px 24px 40px}
   .home__grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
   .home-mag__title{font-size:36px}
-  .home-urgency__text{font-size:20px}
+  .home-urgency__marquee{font-size:19px}
 }
 
 /* —— bandă cel mai apropiat magazin —— */

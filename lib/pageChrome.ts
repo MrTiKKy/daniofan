@@ -6,6 +6,7 @@ import type {
   PageHeader,
   PageHeaderStyleId,
 } from './catalogTypes';
+import { DEFAULT_PAGE_PRICE_STYLE, resolvePagePriceStyle } from './priceStyle';
 
 export type PageBgGroup = 'foaie' | 'categorie' | 'promo' | 'textura';
 
@@ -108,17 +109,20 @@ export const DEFAULT_PAGE_HEADER: PageHeader = {
 export const DEFAULT_PAGE_CHROME: PageChrome = {
   bg: 'classic',
   header: { ...DEFAULT_PAGE_HEADER },
+  price: { ...DEFAULT_PAGE_PRICE_STYLE },
 };
 
 export function resolvePageChrome(page: CatalogPage | null | undefined): PageChrome {
   const c = page?.chrome;
   const bg = c?.bg && BG_BY_ID.has(c.bg) ? c.bg : DEFAULT_PAGE_CHROME.bg;
+  const price = resolvePagePriceStyle(c ? { bg, price: c.price } : null);
   return {
     bg,
     header: {
       ...DEFAULT_PAGE_HEADER,
       ...(c?.header || {}),
     },
+    price,
   };
 }
 

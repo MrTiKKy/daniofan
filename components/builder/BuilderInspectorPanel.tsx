@@ -3,28 +3,38 @@
 import { useEffect, useMemo, useState } from 'react';
 import type {
   CatalogPage,
+  DecorFontId,
   PageBgPresetId,
   PageChrome,
+  PageDecorItem,
   PageHeaderStyleId,
   PageItem,
-  PageItemDesign,
   PageItemDisplay,
+  PageShapeKind,
 } from '@/lib/catalogTypes';
-import type { MessageFontId } from '@/lib/catalogTypes';
-import {
-  canAddMessage,
-  isMessageItem,
-  MESSAGE_COLOR_PRESETS,
-  MESSAGE_FONT_PRESETS,
-  resolveMessageDesign,
-} from '@/lib/messageBlock';
 import {
   getPageBgPreset,
   PAGE_HEADER_STYLES,
   resolvePageChrome,
 } from '@/lib/pageChrome';
+import {
+  decorFontMeta,
+  isDecorShape,
+  isDecorText,
+  PAGE_SHAPE_KINDS,
+  PAGE_SHAPE_QUICK,
+  PAGE_TEXT_FONT_PRESETS,
+} from '@/lib/pageDecor';
+import {
+  resolveItemPriceStyle,
+  resolvePagePriceStyle,
+} from '@/lib/priceStyle';
 import type { Product } from '@/lib/types';
+import ColorSwatchRow from './ColorSwatchRow';
 import PageBgPickerModal from './PageBgPickerModal';
+import PageShapePickerModal from './PageShapePickerModal';
+import PageShapeSvg from './PageShapeSvg';
+import PriceStyleControls from './PriceStyleControls';
 import ProductShelfModal, { type ShelfDraft } from './ProductShelfModal';
 
 type InspectorTab = 'product' | 'design';
@@ -42,9 +52,12 @@ interface Props {
   onProductUpdate?: (productId: string, patch: Partial<Product>) => void;
   categories?: string[];
   onChromeChange: (patch: Partial<PageChrome>) => void;
-  onAddMessage: () => void;
-  onMessageChange: (patch: { text?: string; design?: Partial<PageItemDesign> }) => void;
-  onRemoveMessage: () => void;
+  selectedDecorId?: string | null;
+  onSelectDecor?: (id: string | null) => void;
+  onAddShape?: (shape: PageShapeKind, fill: string) => void;
+  onAddText?: () => void;
+  onDecorChange?: (id: string, patch: Partial<PageDecorItem>) => void;
+  onRemoveDecor?: (id: string) => void;
   onClose: () => void;
 }
 
@@ -62,27 +75,38 @@ function Field({
 export default function BuilderInspectorPanel({
   item, baseProduct, display, page, canPreview, previewOn, onPreview, onChange,
   onProductUpdate, categories = [], onChromeChange,
-  onAddMessage, onMessageChange, onRemoveMessage, onClose,
+  selectedDecorId = null, onSelectDecor, onAddShape, onAddText, onDecorChange, onRemoveDecor,
+  onClose,
 }: Props) {
   const [tab, setTab] = useState<InspectorTab>('product');
   const [bgPickerOpen, setBgPickerOpen] = useState(false);
+  const [shapePickerOpen, setShapePickerOpen] = useState(false);
   const [shelfOpen, setShelfOpen] = useState(false);
+  const [shapeFill, setShapeFill] = useState('#E30613');
+  const [textFill, setTextFill] = useState('#111111');
+  const quickShapes = PAGE_SHAPE_QUICK
+    .map((id) => PAGE_SHAPE_KINDS.find((k) => k.id === id))
+    .filter((k): k is (typeof PAGE_SHAPE_KINDS)[number] => !!k);
   const chrome = resolvePageChrome(page);
   const header = chrome.header!;
   const bgPreset = getPageBgPreset(chrome.bg);
-  const messageSelected = !!(item && isMessageItem(item));
-  const msgDesign = messageSelected && item ? resolveMessageDesign(item) : null;
+  const pagePrice = resolvePagePriceStyle(chrome);
+  const hasPriceOverride = !!(display?.priceStyle && Object.keys(display.priceStyle).length);
+  const itemPrice = resolveItemPriceStyle(pagePrice, display);
+  const decorItems = page?.decor || [];
+  const selectedDecor = decorItems.find((d) => d.id === selectedDecorId) || null;
+  const selectedShape = selectedDecor && isDecorShape(selectedDecor) ? selectedDecor : null;
+  const selectedText = selectedDecor && isDecorText(selectedDecor) ? selectedDecor : null;
+  const textItems = decorItems.filter(isDecorText);
+  const shapeItems = decorItems.filter(isDecorShape);
+  const shapeLabel = (shape: PageShapeKind) =>
+    PAGE_SHAPE_KINDS.find((k) => k.id === shape)?.label || shape;
 
-  /* click pe produs → tab Detalii; eticheta doar din „Editează eticheta”. Mesaj → Design. */
+  /* click pe produs → tab Detalii */
   useEffect(() => {
     if (!item?.id) return;
-    if (isMessageItem(item)) {
-      setTab('design');
-      setShelfOpen(false);
-    } else {
-      setTab('product');
-      setShelfOpen(false);
-    }
+    setTab('product');
+    setShelfOpen(false);
   }, [item?.id]);
 
   const setBg = (bg: PageBgPresetId) => onChromeChange({ bg });
@@ -90,7 +114,7 @@ export default function BuilderInspectorPanel({
     onChromeChange({ header: { ...header, ...patch } });
   };
 
-  const hasProductSelection = !!(item && baseProduct && display && !messageSelected);
+  const hasProductSelection = !!(item && baseProduct && display);
 
   const shelfInitial: ShelfDraft = useMemo(() => {
     if (!display) {
@@ -115,7 +139,7 @@ export default function BuilderInspectorPanel({
     <aside className="bi-panel" aria-label="Instrumente pagină">
       <div className="bi-panel__head">
         <h2>Instrumente</h2>
-        {(hasProductSelection && tab === 'product') || (messageSelected && tab === 'design') ? (
+        {hasProductSelection && tab === 'product' ? (
           <button type="button" className="bi-panel__x" aria-label="Deselectează" onClick={onClose}>×</button>
         ) : null}
       </div>
@@ -130,11 +154,6 @@ export default function BuilderInspectorPanel({
         >
           {previewOn ? 'Ieși din preview' : 'Preview pagină'}
         </button>
-        <p className="bi-panel__tools-hint">
-          {previewOn
-            ? 'Foaia curată — fără linii și mânere. Apasă din nou ca să editezi.'
-            : 'Ascunde liniile punctate și instrumentele pe foaie.'}
-        </p>
       </div>
 
       <div className="bi-tabs" role="tablist" aria-label="Secțiuni panou">
@@ -169,11 +188,7 @@ export default function BuilderInspectorPanel({
             role="tabpanel"
             aria-labelledby="bi-tab-product"
           >
-            {messageSelected ? (
-              <p className="bi-panel__hint">
-                Ai selectat un bloc mesaj — editează-l din tab-ul <strong>Design pagină</strong>.
-              </p>
-            ) : !hasProductSelection || !display ? (
+            {!hasProductSelection || !display ? (
               <p className="bi-panel__hint">
                 Click pe un produs din pagină ca să editezi eticheta (brand, preț, poză).
               </p>
@@ -189,6 +204,57 @@ export default function BuilderInspectorPanel({
                 >
                   Editează eticheta
                 </button>
+
+                <div className="bi-section" style={{ marginTop: 14, paddingBottom: 0, borderBottom: 0 }}>
+                  <label className="bi-chk">
+                    <input
+                      type="checkbox"
+                      checked={!!display.showUnitPrice}
+                      onChange={(e) => onChange({ showUnitPrice: e.target.checked })}
+                    />
+                    Afișează informații suplimentare (preț/kg sau /l)
+                  </label>
+                  <p className="bi-panel__sub" style={{ marginTop: 6 }}>
+                    Doar pe această casuță.
+                  </p>
+                </div>
+
+                <div className="bi-section" style={{ marginTop: 14 }}>
+                  <h3>Stil preț</h3>
+                  <label className="bi-chk">
+                    <input
+                      type="checkbox"
+                      checked={hasPriceOverride}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          onChange({
+                            priceStyle: {
+                              promoColor: pagePrice.promoColor,
+                              digitStyle: pagePrice.digitStyle,
+                              look: pagePrice.look,
+                            },
+                          });
+                        } else {
+                          onChange({ priceStyle: undefined });
+                        }
+                      }}
+                    />
+                    produs modificat individual
+                  </label>
+                  {hasPriceOverride ? (
+                    <PriceStyleControls
+                      value={itemPrice}
+                      onChange={(patch) => onChange({
+                        priceStyle: {
+                          promoColor: itemPrice.promoColor,
+                          digitStyle: itemPrice.digitStyle,
+                          look: itemPrice.look,
+                          ...patch,
+                        },
+                      })}
+                    />
+                  ) : null}
+                </div>
 
                 <ProductShelfModal
                   open={shelfOpen}
@@ -235,121 +301,8 @@ export default function BuilderInspectorPanel({
               <p className="bi-panel__hint">Creează o pagină ca să alegi fundalul și headerul.</p>
             ) : (
               <>
-                <div className="bi-section">
-                  <h3>Bloc mesaj</h3>
-                  <p className="bi-panel__sub">Bloc colorat pe grilă — mută / redimensionează chenarul; dublu-click pentru text liber.</p>
-                  <button
-                    type="button"
-                    className="bi-add-block"
-                    disabled={!canAddMessage(page)}
-                    onClick={onAddMessage}
-                  >
-                    + Adaugă bloc
-                  </button>
-                  {messageSelected && item && msgDesign ? (
-                    <div className="bi-msg-edit">
-                      <Field label="Text">
-                        <input
-                          type="text"
-                          value={item.text || ''}
-                          onChange={(e) => onMessageChange({ text: e.target.value })}
-                          placeholder="Mesajul pe pagină"
-                        />
-                      </Field>
-                      <label className="bi-radius">
-                        <span>Colțuri (drept → cerc)</span>
-                        <div className="bi-radius__row">
-                          <input
-                            type="range"
-                            min={0}
-                            max={50}
-                            step={1}
-                            value={msgDesign.radius ?? 18}
-                            onChange={(e) => onMessageChange({ design: { radius: Number(e.target.value) } })}
-                          />
-                          <span className="bi-radius__val">{msgDesign.radius ?? 18}</span>
-                        </div>
-                      </label>
-                      <label className="bi-radius">
-                        <span>Fade pe margini</span>
-                        <div className="bi-radius__row">
-                          <input
-                            type="range"
-                            min={0}
-                            max={40}
-                            step={1}
-                            value={msgDesign.edgeFade ?? 0}
-                            onChange={(e) => onMessageChange({ design: { edgeFade: Number(e.target.value) } })}
-                          />
-                          <span className="bi-radius__val">{msgDesign.edgeFade ?? 0}</span>
-                        </div>
-                      </label>
-                      <p className="bi-panel__sub">Font</p>
-                      <div className="bi-msg-fonts" role="listbox" aria-label="Font">
-                        {MESSAGE_FONT_PRESETS.map((f) => (
-                          <button
-                            key={f.id}
-                            type="button"
-                            role="option"
-                            aria-selected={(msgDesign.fontFamily || 'cond') === f.id}
-                            className={'bi-msg-font' + ((msgDesign.fontFamily || 'cond') === f.id ? ' is-on' : '')}
-                            style={{
-                              fontFamily: f.css,
-                              fontWeight: f.weight,
-                              fontStyle: f.italic ? 'italic' : 'normal',
-                            }}
-                            onClick={() => onMessageChange({
-                              design: {
-                                fontFamily: f.id as MessageFontId,
-                                fontWeight: f.weight,
-                              },
-                            })}
-                          >
-                            {f.label}
-                          </button>
-                        ))}
-                      </div>
-                      <label className="bi-chk" style={{ marginTop: 4 }}>
-                        <input
-                          type="checkbox"
-                          checked={msgDesign.uppercase !== false}
-                          onChange={(e) => onMessageChange({ design: { uppercase: e.target.checked } })}
-                        />
-                        Majuscule
-                      </label>
-                      <p className="bi-panel__sub">Culoare bloc</p>
-                      <div className="bi-msg-colors" role="listbox" aria-label="Culoare bloc">
-                        {MESSAGE_COLOR_PRESETS.map((c) => (
-                          <button
-                            key={c.label}
-                            type="button"
-                            role="option"
-                            title={c.label}
-                            aria-selected={msgDesign.background === c.background}
-                            className={'bi-msg-color' + (msgDesign.background === c.background ? ' is-on' : '')}
-                            style={{ background: c.background, color: c.color }}
-                            onClick={() => onMessageChange({ design: { background: c.background, color: c.color } })}
-                          >
-                            {c.label}
-                          </button>
-                        ))}
-                      </div>
-                      <p className="bi-panel__hint">
-                        Dublu-click pe bloc: mută textul și scroll pentru mărime (ca la produs).
-                      </p>
-                      <button type="button" className="bi-msg-del" onClick={onRemoveMessage}>
-                        Șterge blocul
-                      </button>
-                    </div>
-                  ) : (
-                    <p className="bi-panel__hint" style={{ marginTop: 8 }}>
-                      Sau click pe un bloc de pe foaie ca să-i schimbi textul, fontul și colțurile.
-                    </p>
-                  )}
-                </div>
-
-                <div className="bi-section">
-                  <h3>Fundal pagină</h3>
+                <section className="bi-card">
+                  <h3 className="bi-card__title">Fundal</h3>
                   <button
                     type="button"
                     className="bi-bg-pick"
@@ -367,10 +320,10 @@ export default function BuilderInspectorPanel({
                     onSelect={setBg}
                     onClose={() => setBgPickerOpen(false)}
                   />
-                </div>
+                </section>
 
-                <div className="bi-section">
-                  <h3>Header pagină</h3>
+                <section className="bi-card">
+                  <h3 className="bi-card__title">Header</h3>
                   <label className="bi-chk">
                     <input
                       type="checkbox"
@@ -379,7 +332,7 @@ export default function BuilderInspectorPanel({
                     />
                     Afișează bandă sus pe foaie
                   </label>
-                  <Field label="Titlu pagină">
+                  <Field label="Titlu">
                     <input
                       type="text"
                       value={header.text}
@@ -388,16 +341,16 @@ export default function BuilderInspectorPanel({
                       placeholder="ex. Legume, fructe și plante"
                     />
                   </Field>
-                  <Field label="Subtitlu (opțional)">
+                  <Field label="Subtitlu">
                     <input
                       type="text"
                       value={header.subtitle || ''}
                       disabled={!header.enabled}
                       onChange={(e) => setHeader({ subtitle: e.target.value })}
-                      placeholder="ex. Valabilitate ofertă: 21.10 – 26.10"
+                      placeholder="ex. Valabilitate ofertă"
                     />
                   </Field>
-                  <p className="bi-panel__sub">Culoare header</p>
+                  <p className="bi-label">Culoare</p>
                   <div className="bi-header-styles" role="listbox" aria-label="Stil header">
                     {PAGE_HEADER_STYLES.map((s) => (
                       <button
@@ -416,9 +369,292 @@ export default function BuilderInspectorPanel({
                       </button>
                     ))}
                   </div>
-                </div>
+                </section>
+
+                <section className="bi-card">
+                  <h3 className="bi-card__title">Decor</h3>
+
+                  <div className="bi-decor-block">
+                    <div className="bi-decor-block__head">
+                      <p className="bi-label">Text</p>
+                      <button
+                        type="button"
+                        className="bi-add-text"
+                        disabled={!onAddText}
+                        aria-label="Adaugă text"
+                        title="Adaugă text"
+                        onClick={() => onAddText?.()}
+                      >
+                        <span aria-hidden="true">+</span>
+                      </button>
+                    </div>
+                    {selectedText ? (
+                      <div className="bi-edit-box">
+                        <Field label="Conținut">
+                          <input
+                            type="text"
+                            value={selectedText.text || ''}
+                            onChange={(e) => onDecorChange?.(selectedText.id, { text: e.target.value })}
+                            placeholder="Text pe pagină"
+                          />
+                        </Field>
+                        <p className="bi-label">Font</p>
+                        <div className="bi-text-fonts" role="listbox" aria-label="Font">
+                          {PAGE_TEXT_FONT_PRESETS.map((f) => (
+                            <button
+                              key={f.id}
+                              type="button"
+                              role="option"
+                              title={f.label}
+                              aria-label={f.label}
+                              aria-selected={(selectedText.fontFamily || 'cond') === f.id}
+                              className={'bi-text-font' + ((selectedText.fontFamily || 'cond') === f.id ? ' is-on' : '')}
+                              style={{
+                                fontFamily: f.css,
+                                fontWeight: f.weight,
+                                fontStyle: f.italic ? 'italic' : 'normal',
+                              }}
+                              onClick={() => {
+                                const meta = decorFontMeta(f.id);
+                                onDecorChange?.(selectedText.id, {
+                                  fontFamily: f.id as DecorFontId,
+                                  fontWeight: meta.weight,
+                                  italic: !!meta.italic,
+                                });
+                              }}
+                            >
+                              A
+                            </button>
+                          ))}
+                        </div>
+                        <label className="bi-chk">
+                          <input
+                            type="checkbox"
+                            checked={selectedText.uppercase !== false}
+                            onChange={(e) => onDecorChange?.(selectedText.id, { uppercase: e.target.checked })}
+                          />
+                          Majuscule
+                        </label>
+                        <ColorSwatchRow
+                          label="Culoare"
+                          value={selectedText.fill || textFill}
+                          onChange={(c) => {
+                            setTextFill(c);
+                            onDecorChange?.(selectedText.id, { fill: c });
+                          }}
+                        />
+                        <label className="bi-radius">
+                          <span>Opacitate</span>
+                          <div className="bi-radius__row">
+                            <input
+                              type="range"
+                              min={15}
+                              max={100}
+                              step={1}
+                              value={Math.round((selectedText.opacity ?? 1) * 100)}
+                              onChange={(e) => onDecorChange?.(selectedText.id, {
+                                opacity: Number(e.target.value) / 100,
+                              })}
+                            />
+                            <span className="bi-radius__val">
+                              {Math.round((selectedText.opacity ?? 1) * 100)}%
+                            </span>
+                          </div>
+                        </label>
+                        <label className="bi-radius">
+                          <span>Rotație</span>
+                          <div className="bi-radius__row">
+                            <input
+                              type="range"
+                              min={-45}
+                              max={45}
+                              step={1}
+                              value={selectedText.rotate ?? 0}
+                              onChange={(e) => onDecorChange?.(selectedText.id, {
+                                rotate: Number(e.target.value),
+                              })}
+                            />
+                            <span className="bi-radius__val">{selectedText.rotate ?? 0}°</span>
+                          </div>
+                        </label>
+                        <button
+                          type="button"
+                          className="bi-msg-del"
+                          onClick={() => onRemoveDecor?.(selectedText.id)}
+                        >
+                          Șterge textul
+                        </button>
+                      </div>
+                    ) : textItems.length > 0 ? (
+                      <div className="bi-decor-list" role="listbox" aria-label="Texte pe pagină">
+                        {textItems.map((d) => (
+                          <div key={d.id} className="bi-decor-row">
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={false}
+                              className="bi-decor-row__pick"
+                              onClick={() => onSelectDecor?.(d.id)}
+                            >
+                              <span
+                                className="bi-decor-row__swatch"
+                                style={{ background: d.fill }}
+                                aria-hidden="true"
+                              />
+                              <span>{(d.text || 'Text').slice(0, 24)}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="bi-decor-row__del"
+                              aria-label="Șterge text"
+                              onClick={() => onRemoveDecor?.(d.id)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="bi-decor-block">
+                    <div className="bi-decor-block__head">
+                      <p className="bi-label">Forme</p>
+                      <button
+                        type="button"
+                        className="bi-shape-more"
+                        title="Mai multe forme"
+                        aria-label="Mai multe forme"
+                        disabled={!onAddShape}
+                        onClick={() => setShapePickerOpen(true)}
+                      >
+                        <span aria-hidden="true">+</span>
+                      </button>
+                    </div>
+                    <div className="bi-shapes-row" role="listbox" aria-label="Forme rapide">
+                      {quickShapes.map((k) => (
+                        <button
+                          key={k.id}
+                          type="button"
+                          role="option"
+                          title={k.label}
+                          aria-label={k.label}
+                          className="bi-shape-quick"
+                          disabled={!onAddShape}
+                          onClick={() => onAddShape?.(k.id, shapeFill)}
+                        >
+                          <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                            <PageShapeSvg shape={k.id} fill={shapeFill} />
+                          </svg>
+                        </button>
+                      ))}
+                    </div>
+                    <PageShapePickerModal
+                      open={shapePickerOpen}
+                      fill={shapeFill}
+                      onSelect={(shape) => onAddShape?.(shape, shapeFill)}
+                      onClose={() => setShapePickerOpen(false)}
+                    />
+                    <ColorSwatchRow
+                      label="Culoare"
+                      value={selectedShape?.fill || shapeFill}
+                      onChange={(c) => {
+                        setShapeFill(c);
+                        if (selectedShape && onDecorChange) {
+                          onDecorChange(selectedShape.id, { fill: c });
+                        }
+                      }}
+                    />
+                    {selectedShape ? (
+                      <div className="bi-edit-box">
+                        <p className="bi-label">{shapeLabel(selectedShape.shape)}</p>
+                        <label className="bi-radius">
+                          <span>Opacitate</span>
+                          <div className="bi-radius__row">
+                            <input
+                              type="range"
+                              min={15}
+                              max={100}
+                              step={1}
+                              value={Math.round((selectedShape.opacity ?? 1) * 100)}
+                              onChange={(e) => onDecorChange?.(selectedShape.id, {
+                                opacity: Number(e.target.value) / 100,
+                              })}
+                            />
+                            <span className="bi-radius__val">
+                              {Math.round((selectedShape.opacity ?? 1) * 100)}%
+                            </span>
+                          </div>
+                        </label>
+                        <label className="bi-radius">
+                          <span>Rotație</span>
+                          <div className="bi-radius__row">
+                            <input
+                              type="range"
+                              min={-45}
+                              max={45}
+                              step={1}
+                              value={selectedShape.rotate ?? 0}
+                              onChange={(e) => onDecorChange?.(selectedShape.id, {
+                                rotate: Number(e.target.value),
+                              })}
+                            />
+                            <span className="bi-radius__val">{selectedShape.rotate ?? 0}°</span>
+                          </div>
+                        </label>
+                        <button
+                          type="button"
+                          className="bi-msg-del"
+                          onClick={() => onRemoveDecor?.(selectedShape.id)}
+                        >
+                          Șterge forma
+                        </button>
+                      </div>
+                    ) : shapeItems.length > 0 ? (
+                      <div className="bi-decor-list" role="listbox" aria-label="Forme pe pagină">
+                        {shapeItems.map((d) => (
+                          <div key={d.id} className="bi-decor-row">
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={false}
+                              className="bi-decor-row__pick"
+                              onClick={() => onSelectDecor?.(d.id)}
+                            >
+                              <span
+                                className="bi-decor-row__swatch"
+                                style={{ background: d.fill }}
+                                aria-hidden="true"
+                              />
+                              <span>{shapeLabel(d.shape)}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="bi-decor-row__del"
+                              aria-label={`Șterge ${shapeLabel(d.shape)}`}
+                              onClick={() => onRemoveDecor?.(d.id)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
+
+                <section className="bi-card">
+                  <h3 className="bi-card__title">Stil prețuri</h3>
+                  <PriceStyleControls
+                    value={pagePrice}
+                    onChange={(patch) => onChromeChange({
+                      price: { ...(chrome.price || {}), ...patch },
+                    })}
+                  />
+                </section>
               </>
             )}
+
           </div>
         )}
       </div>

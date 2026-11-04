@@ -1,5 +1,5 @@
 /* CRUD catalogs + pages pe Postgres — mapare 1:1 cu Catalog / CatalogPage. Server-only. */
-import { and, asc, desc, eq, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { Catalog, CatalogPage, CatalogStatus, MagazineKind } from '@/lib/catalogTypes';
 import { DEFAULT_GRID, normalizeCatalogStatus } from '@/lib/catalogTypes';
 import { getDb } from './index';
@@ -35,6 +35,7 @@ function pageRowToPage(row: typeof catalogPages.$inferSelect): CatalogPage {
     items: Array.isArray(row.items) ? row.items : [],
     ...(row.grid ? { grid: row.grid } : {}),
     ...(row.chrome ? { chrome: row.chrome } : {}),
+    ...(Array.isArray(row.decor) && row.decor.length ? { decor: row.decor } : {}),
   };
 }
 
@@ -102,17 +103,36 @@ async function replacePages(catalogId: string, pages: CatalogPage[]): Promise<vo
   const now = new Date();
   await db.delete(catalogPages).where(eq(catalogPages.catalogId, catalogId));
   if (!pages.length) return;
+
+  /* Evită conflict PK dacă aceleași page-id există pe altă revistă (ex. publicată). */
+  const wantedIds = pages.map((p) => p.id).filter(Boolean);
+  const taken = new Set<string>();
+  if (wantedIds.length) {
+    const rows = await db
+      .select({ id: catalogPages.id })
+      .from(catalogPages)
+      .where(inArray(catalogPages.id, wantedIds));
+    for (const r of rows) taken.add(r.id);
+  }
+
+  const mint = () => `page-${crypto.randomUUID().slice(0, 8)}`;
   await db.insert(catalogPages).values(
-    pages.map((p, i) => ({
-      id: p.id,
-      catalogId,
-      sortOrder: i,
-      grid: p.grid ?? null,
-      chrome: p.chrome ?? null,
-      items: p.items || [],
-      createdAt: now,
-      updatedAt: now,
-    })),
+    pages.map((p, i) => {
+      let id = p.id || mint();
+      if (taken.has(id)) id = mint();
+      taken.add(id);
+      return {
+        id,
+        catalogId,
+        sortOrder: i,
+        grid: p.grid ?? null,
+        chrome: p.chrome ?? null,
+        decor: p.decor?.length ? p.decor : null,
+        items: p.items || [],
+        createdAt: now,
+        updatedAt: now,
+      };
+    }),
   );
 }
 
@@ -121,14 +141,20 @@ export async function upsertCatalogDb(catalog: Catalog): Promise<Catalog> {
   const now = new Date();
   const kind: MagazineKind = catalog.kind === 'special' ? 'special' : 'weekend';
   const status = normalizeCatalogStatus(catalog.status);
+  let startDate = catalog.start || '';
+  let endDate = catalog.end || '';
+  /* Guard: end înainte de start → home tratează revista ca inactivă. */
+  if (startDate && endDate && endDate < startDate) {
+    endDate = startDate;
+  }
   const values = {
     id: catalog.id,
     title: (catalog.title || '').trim(),
     kind,
     status,
     theme: catalog.theme || 'standard',
-    startDate: catalog.start || '',
-    endDate: catalog.end || '',
+    startDate,
+    endDate,
     permanent: status === 'published' ? !!catalog.permanent : false,
     coverSrc: catalog.coverSrc || null,
     grid: catalog.grid || { ...DEFAULT_GRID },

@@ -54,7 +54,6 @@ export default function EndPage({
         <h2 className="end-page__title">Ai văzut toate ofertele!</h2>
         <p className="end-page__sub">
           {title}
-          {period ? ` · valabilă ${period}` : ''}
         </p>
         {daysLeft != null && daysLeft >= 0 && daysLeft <= 2 ? (
           <p className="end-page__urgent" role="status">
