@@ -470,7 +470,7 @@
 .mag-msg.has-fade{overflow:visible;box-shadow:none}
 .mag-msg.is-gesture{overflow:visible}
 .mag-msg__text{position:absolute;z-index:1;margin:0;max-width:88%;letter-spacing:.03em;line-height:1.15;
-  word-break:break-word;pointer-events:none;transform-origin:top left;zoom:var(--box-zoom,1)}
+  word-break:break-word;pointer-events:none;transform:scale(var(--box-zoom,1));transform-origin:top left}
 .mag-msg.is-gesture .mag-msg__text.is-gesture-target{pointer-events:auto;cursor:pointer;touch-action:none}
 .mag-msg.is-gesture .mag-msg__text.is-active{cursor:grab;outline:2px solid var(--blue);outline-offset:2px;border-radius:.3cqw}
 .mag-msg.is-gesture .mag-msg__text.is-active:active{cursor:grabbing}

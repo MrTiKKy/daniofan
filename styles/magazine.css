@@ -211,7 +211,7 @@ body[data-theme="craciun"] .mag__stage{--viewer-bg:color-mix(in srgb,var(--band-
   box-shadow:0 .25cqw .6cqw rgba(0,0,0,.08)}
 .mag-msg.has-fade{overflow:visible;box-shadow:none}
 .mag-msg__text{position:absolute;z-index:1;margin:0;max-width:88%;letter-spacing:.03em;line-height:1.15;
-  word-break:break-word;pointer-events:none;transform-origin:top left;zoom:var(--box-zoom,1)}
+  word-break:break-word;pointer-events:none;transform:scale(var(--box-zoom,1));transform-origin:top left}
 
 /* ---------- machete / căsuțe (cqw) ---------- */
 .mag-layout{flex:1;min-height:0;display:flex;flex-direction:column;gap:1cqw}
@@ -301,7 +301,7 @@ body[data-theme="craciun"] .mag__stage{--viewer-bg:color-mix(in srgb,var(--band-
 /* text + preț: poziții absolute în chenar (ca pe oferta Lidl) */
 .mag-cell__text{position:absolute;z-index:2;min-width:0;max-width:min(46%,100%);width:max-content;height:auto;text-align:left;
   padding:0;margin:0;box-sizing:border-box;overflow:visible;pointer-events:none;
-  zoom:var(--box-zoom,1)}
+  transform:scale(var(--box-zoom,1));transform-origin:top left}
 .mag-cell__text.is-sized{max-width:none;height:auto}
 .mag-cell.is-gesture .mag-cell__text{pointer-events:auto;overflow:visible;height:auto}
 /* mânere resize lățime — doar stânga/dreapta; înălțimea = conținut */
@@ -349,7 +349,7 @@ body[data-theme="craciun"] .mag__stage{--viewer-bg:color-mix(in srgb,var(--band-
 .mag-cell__price{position:absolute;z-index:2;display:flex;flex-direction:column;align-items:flex-end;
   min-width:0;width:max-content;max-width:min(60%,100%);text-align:right;
   padding:0;margin:0;box-sizing:border-box;overflow:visible;pointer-events:none;
-  zoom:var(--box-zoom,1)}
+  transform:scale(var(--box-zoom,1));transform-origin:top left}
 .mag-cell.is-gesture .mag-cell__price{pointer-events:auto}
 /* inimă: poziție liberă; chenar doar în mod gesturi (ca text/preț) */
 .mag-cell__heart{position:absolute;z-index:8;width:max-content;box-sizing:border-box;
