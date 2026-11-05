@@ -7,6 +7,7 @@ import type {
   PageHeaderStyleId,
 } from './catalogTypes';
 import { DEFAULT_PAGE_PRICE_STYLE, resolvePagePriceStyle } from './priceStyle';
+import { DEFAULT_PAGE_TEXT_STYLE } from './textStyle';
 
 export type PageBgGroup = 'foaie' | 'categorie' | 'promo' | 'textura';
 
@@ -110,6 +111,7 @@ export const DEFAULT_PAGE_CHROME: PageChrome = {
   bg: 'classic',
   header: { ...DEFAULT_PAGE_HEADER },
   price: { ...DEFAULT_PAGE_PRICE_STYLE },
+  text: { ...DEFAULT_PAGE_TEXT_STYLE },
 };
 
 export function resolvePageChrome(page: CatalogPage | null | undefined): PageChrome {
@@ -123,9 +125,69 @@ export function resolvePageChrome(page: CatalogPage | null | undefined): PageChr
       ...(c?.header || {}),
     },
     price,
+    text: {
+      ...DEFAULT_PAGE_TEXT_STYLE,
+      ...(c?.text || {}),
+    },
   };
 }
 
 export function pageHeaderClass(style: PageHeaderStyleId): string {
   return `mag-page-header--${style}`;
+}
+
+const HEADER_STYLE_HEX: Record<PageHeaderStyleId, string> = {
+  green: '#C6E800',
+  yellow: '#FFD200',
+  red: '#E30613',
+  blue: '#1559E0',
+  dark: '#111111',
+};
+
+/** Hex bandă header — din `color` sau din presetul `style`. */
+export function resolveHeaderBarColor(header: PageHeader): string {
+  const c = (header.color || '').trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(c)) return c;
+  return HEADER_STYLE_HEX[header.style] || HEADER_STYLE_HEX.green;
+}
+
+function hexLuma(hex: string): number {
+  const n = hex.replace('#', '');
+  const r = parseInt(n.slice(0, 2), 16) / 255;
+  const g = parseInt(n.slice(2, 4), 16) / 255;
+  const b = parseInt(n.slice(4, 6), 16) / 255;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Variabile CSS pentru bandă — contrast automat pe titlu / badge. */
+export function pageHeaderCssVars(header: PageHeader): Record<string, string> {
+  const bar = resolveHeaderBarColor(header);
+  const light = hexLuma(bar) > 0.55;
+  return {
+    '--ph-bar': bar,
+    '--ph-title': light ? '#111111' : '#ffffff',
+    '--ph-badge': light ? '#E30613' : '#FFD200',
+    '--ph-badge-ink': '#111111',
+    '--ph-sub-fg': light ? '#333333' : '#444444',
+  };
+}
+
+/** Preset cel mai apropiat de un hex (păstrează `style` pe salvare). */
+export function nearestHeaderStyle(hex: string): PageHeaderStyleId {
+  const h = hex.toLowerCase();
+  let best: PageHeaderStyleId = 'green';
+  let bestD = Infinity;
+  for (const [id, sw] of Object.entries(HEADER_STYLE_HEX) as [PageHeaderStyleId, string][]) {
+    const a = h.replace('#', '');
+    const b = sw.replace('#', '').toLowerCase();
+    const dr = parseInt(a.slice(0, 2), 16) - parseInt(b.slice(0, 2), 16);
+    const dg = parseInt(a.slice(2, 4), 16) - parseInt(b.slice(2, 4), 16);
+    const db = parseInt(a.slice(4, 6), 16) - parseInt(b.slice(4, 6), 16);
+    const d = dr * dr + dg * dg + db * db;
+    if (d < bestD) {
+      bestD = d;
+      best = id;
+    }
+  }
+  return best;
 }

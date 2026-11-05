@@ -7,6 +7,7 @@ interface Props {
   onChange: (color: string) => void;
   label?: string;
   swatches?: readonly string[];
+  disabled?: boolean;
 }
 
 export default function ColorSwatchRow({
@@ -14,12 +15,13 @@ export default function ColorSwatchRow({
   onChange,
   label = 'Culoare',
   swatches = PROMO_COLOR_SWATCHES,
+  disabled = false,
 }: Props) {
   const customValue = /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#E30613';
   return (
-    <div className="bi-price-colors-wrap">
+    <div className={'bi-price-colors-wrap' + (disabled ? ' is-disabled' : '')}>
       {label ? <p className="bi-label">{label}</p> : null}
-      <div className="bi-price-colors" role="group" aria-label={label || 'Culoare'}>
+      <div className="bi-price-colors" role="group" aria-label={label || 'Culoare'} aria-disabled={disabled || undefined}>
         {swatches.map((c) => {
           const on = value.toLowerCase() === c.toLowerCase();
           return (
@@ -27,6 +29,7 @@ export default function ColorSwatchRow({
               key={c}
               type="button"
               aria-pressed={on}
+              disabled={disabled}
               className={'bi-price-color' + (on ? ' is-on' : '')}
               style={{ background: c }}
               title={c}
@@ -39,6 +42,7 @@ export default function ColorSwatchRow({
           <input
             type="color"
             value={customValue}
+            disabled={disabled}
             onChange={(e) => onChange(e.target.value)}
           />
         </label>

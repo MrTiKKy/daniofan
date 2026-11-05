@@ -8,9 +8,28 @@ import PageShapeSvg from './PageShapeSvg';
 interface Props {
   items: PageDecorItem[];
   editable?: boolean;
+  /** Constructor, edit produse: forme atenuate (planul doi). */
+  soft?: boolean;
   selectedId?: string | null;
   onSelect?: (id: string | null) => void;
   onChange?: (id: string, patch: Partial<PageDecorItem>) => void;
+}
+
+/** Opacitate vizuală în constructor — nu rescrie valoarea salvată pe item. */
+function displayOpacity(
+  base: number,
+  opts: { editable: boolean; soft: boolean; selected: boolean },
+): number {
+  const o = Number.isFinite(base) ? Math.min(1, Math.max(0, base)) : 1;
+  if (opts.editable) {
+    /* Mod forme: selectata clară, restul în planul doi. */
+    return opts.selected ? Math.max(o, 0.92) : Math.min(o, 1) * 0.28;
+  }
+  if (opts.soft) {
+    /* Edit produse: toate formele atenuate ca să nu acopere casuțele. */
+    return Math.min(o, 1) * 0.32;
+  }
+  return o;
 }
 
 type ResizeCorner = 'nw' | 'ne' | 'sw' | 'se';
@@ -21,6 +40,7 @@ const RESIZE_CORNERS: ResizeCorner[] = ['nw', 'ne', 'sw', 'se'];
 export default function PageDecorLayer({
   items,
   editable = false,
+  soft = false,
   selectedId = null,
   onSelect,
   onChange,
@@ -145,7 +165,11 @@ export default function PageDecorLayer({
               top: `${item.y}%`,
               width: `${item.w}%`,
               height: `${item.h}%`,
-              opacity: item.opacity ?? 1,
+              opacity: displayOpacity(item.opacity ?? 1, {
+                editable,
+                soft,
+                selected,
+              }),
               transform: item.rotate ? `rotate(${item.rotate}deg)` : undefined,
             }}
             onPointerDown={editable ? (e) => begin(e, item, 'move') : undefined}

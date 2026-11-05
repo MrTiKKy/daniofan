@@ -274,14 +274,25 @@
 .mag-builder__gesture-hint{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:8;
   max-width:min(92%,420px);padding:8px 12px;border-radius:10px;background:rgba(17,17,17,.88);color:#fff;
   font:600 12px/1.35 var(--body);text-align:center;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.mag-builder__gesture-exit{
+  position:absolute;top:12px;right:12px;z-index:12;width:44px;height:44px;padding:0;
+  border:3px solid #111;border-radius:12px;background:var(--red,#E30613);color:#fff;
+  font:900 32px/1 var(--cond);cursor:pointer;display:grid;place-items:center;
+  box-shadow:0 4px 0 #8B0008,0 8px 20px rgba(0,0,0,.28);-webkit-tap-highlight-color:transparent}
+.mag-builder__gesture-exit:hover{filter:brightness(1.06)}
+.mag-builder__gesture-exit:active{transform:translateY(2px);box-shadow:0 2px 0 #8B0008,0 4px 12px rgba(0,0,0,.25)}
+.mag-builder__gesture-exit span{display:block;margin-top:-2px}
 .mag-builder.is-gesture-mode .mag-builder__page-preview{box-shadow:0 12px 36px rgba(0,0,0,.28)}
 .mag-builder__block.is-gesture-dimmed{opacity:.32;filter:brightness(.42);pointer-events:none;z-index:1}
 .mag-builder__block.is-gesture-focus{z-index:40;cursor:default;border-style:solid;border-color:#111;overflow:visible;
   background:#fff;box-shadow:0 0 0 9999px rgba(0,0,0,.48),0 10px 28px rgba(0,0,0,.22)}
 .mag-builder__block.is-gesture-focus .mag-cell{pointer-events:auto;overflow:visible}
 .mag-builder.is-gesture-mode .mag-builder__slot{opacity:.35;pointer-events:none}
-.mag-builder.is-gesture-mode .mag-strip,.mag-builder.is-gesture-mode .bp-panel,.mag-builder.is-gesture-mode .bi-panel{
+/* În gesturi: panoul stânga + strip blocate; dreapta (inspector) rămâne activ — text/preț. */
+.mag-builder.is-gesture-mode .mag-strip,.mag-builder.is-gesture-mode .bp-panel{
   pointer-events:none;opacity:.55;transition:opacity .18s ease}
+.mag-builder.is-gesture-mode .mag-dock--right{
+  position:relative;z-index:50;pointer-events:auto;opacity:1}
 
 /* mod edit forme — foaie curată ca preview, DAR formele se văd și în afara foii */
 .mag-builder.is-shapes-edit .mag-builder__page-preview,
@@ -347,9 +358,11 @@
 
 /* panou dreapta — inspetor / setări (shell) */
 .bi-panel{display:flex;flex-direction:column;min-height:0;height:100%;background:#fff;overflow:hidden;box-sizing:border-box}
-.bi-panel__head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 12px 8px;flex:none;border-bottom:1px solid #eee}
+.bi-panel__head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 12px 8px;flex:none;border-bottom:1px solid #eee;
+  min-height:calc(12px + 40px + 8px);box-sizing:border-box}
 .bi-panel__head h2{margin:0;font:900 22px/1 var(--cond);text-transform:uppercase}
-.bi-panel__x{width:40px;height:40px;border:2px solid #111;border-radius:10px;background:#fff;font-size:26px;line-height:1;cursor:pointer;flex:none}
+.bi-panel__x-slot{width:40px;height:40px;flex:none;display:grid;place-items:center}
+.bi-panel__x{width:40px;height:40px;border:2px solid #111;border-radius:10px;background:#fff;font-size:26px;line-height:1;cursor:pointer;padding:0}
 .bi-panel__tools{flex:none;padding:10px 12px;border-bottom:1px solid #eee}
 .bi-preview-btn{width:100%;min-height:44px;padding:8px 12px;border:2px solid #111;border-radius:10px;background:var(--yellow);color:#111;
   font:800 15px/1 var(--cond);text-transform:uppercase;cursor:pointer;box-shadow:0 3px 0 #c9a400}
@@ -362,6 +375,8 @@
 .bi-tabs__btn:last-child{border-right:0}
 .bi-tabs__btn:hover{background:#E8EAEE;color:#111}
 .bi-tabs__btn.is-on{background:#111;color:#fff}
+.bi-tabs__btn:disabled{opacity:.4;cursor:not-allowed;color:#888}
+.bi-tabs__btn:disabled:hover{background:transparent;color:#888}
 .bi-panel__body{flex:1;min-height:0;overflow:auto;padding:12px;background:#F4F5F7}
 .bi-panel__body > [role="tabpanel"]{display:flex;flex-direction:column;gap:12px;min-height:100%}
 
@@ -484,10 +499,15 @@
 /* Stil prețuri — fără preseturi; titluri de subsecțiune negre */
 .bi-price{display:flex;flex-direction:column;gap:12px}
 .bi-price-colors-wrap{display:flex;flex-direction:column;gap:8px}
+.bi-price-colors-wrap.is-disabled{opacity:.45;pointer-events:none}
 .bi-price-title,.bi-label{margin:0 0 6px;font:800 11px/1.2 var(--cond);text-transform:uppercase;letter-spacing:.04em;color:#555}
 .bi-price-colors{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.bi-price-colors.is-disabled{opacity:.45;pointer-events:none}
 .bi-price-color{width:28px;height:28px;border-radius:999px;border:2px solid #fff;box-shadow:0 0 0 2px #D5D8E0;cursor:pointer;padding:0}
 .bi-price-color.is-on{box-shadow:0 0 0 2px #111}
+.bi-price-color.is-light{box-shadow:0 0 0 2px #D5D8E0,inset 0 0 0 1px #ccc}
+.bi-price-color.is-light.is-on{box-shadow:0 0 0 2px #111,inset 0 0 0 1px #ccc}
+.bi-price-color:disabled{cursor:not-allowed}
 .bi-price-color-custom{position:relative;width:28px;height:28px;border-radius:999px;overflow:hidden;
   border:2px dashed #C9CDD6;cursor:pointer}
 .bi-price-color-custom input{position:absolute;inset:-4px;width:calc(100% + 8px);height:calc(100% + 8px);
@@ -514,6 +534,8 @@
 .bi-card{margin:0;padding:12px;border:2px solid #E2E4EA;border-radius:14px;background:#fff;
   box-shadow:0 1px 0 rgba(17,17,17,.04);display:flex;flex-direction:column;gap:10px}
 .bi-card__title{margin:0;font:900 15px/1 var(--cond);text-transform:uppercase;letter-spacing:.03em;color:#111}
+.bi-card__empty{margin:0;padding:10px 12px;border:2px dashed #D5D8E0;border-radius:10px;background:#FAFBFC;
+  font:600 13px/1.35 var(--body);color:#888;text-align:center}
 .bi-edit-box{margin-top:4px;padding:10px;border:2px solid #111;border-radius:12px;background:#FAFBFC;
   display:flex;flex-direction:column;gap:8px}
 .bi-card .bi-field,.bi-edit-box .bi-field,.bi-card .bi-radius,.bi-edit-box .bi-radius{margin-bottom:0}
@@ -666,7 +688,7 @@
   .bp-panel__head h2{font-size:18px}
   .bp-filters{padding:0 8px 6px}
   .bp-filters__search input{min-height:34px;font-size:13px}
-  .bi-panel__head{padding:8px 10px 6px}
+  .bi-panel__head{padding:8px 10px 6px;min-height:calc(8px + 40px + 6px)}
   .bi-panel__head h2{font-size:18px}
   .bi-panel__tools{padding:8px 10px}
   .bi-preview-btn{min-height:38px;font-size:13px}
@@ -702,6 +724,10 @@
 .shelf-modal__done{background:var(--red,#E30613);color:#fff;border-color:var(--red-dark,#A8000C);box-shadow:0 3px 0 var(--red-dark,#A8000C)}
 .shelf-modal__done:disabled,.shelf-modal__cancel:disabled,.shelf-modal__img-btn:disabled{opacity:.4;cursor:default;box-shadow:none}
 .shelf-modal__img-btn{width:100%;margin-top:10px;font-size:14px}
+.shelf-modal__img-alt{display:block;width:100%;margin-top:8px;padding:8px 10px;border:2px dashed #999;border-radius:10px;
+  background:#FAFBFC;color:#333;font:700 12px/1.25 var(--cond);text-transform:uppercase;text-align:center;
+  text-decoration:none;box-sizing:border-box}
+.shelf-modal__img-alt:hover{border-color:#111;background:#fff;color:#111}
 
 .shelf-label{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:18px;align-items:stretch}
 .shelf-label__media{min-width:0}

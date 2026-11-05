@@ -2,7 +2,7 @@
 'use client';
 import type { CatalogPage, MagazineKind } from '@/lib/catalogTypes';
 import {
-  pageHeaderClass,
+  pageHeaderCssVars,
   resolvePageChrome,
 } from '@/lib/pageChrome';
 import {
@@ -14,6 +14,7 @@ import {
   resolveTextPos,
 } from '@/lib/pageItemDisplay';
 import { resolveItemPriceStyle, resolvePagePriceStyle } from '@/lib/priceStyle';
+import { resolveItemTextStyle, resolvePageTextStyle } from '@/lib/textStyle';
 import type { Product } from '@/lib/types';
 import PageDecorLayer from '@/components/builder/PageDecorLayer';
 import ProductCell from './ProductCell';
@@ -40,13 +41,15 @@ export default function CatalogPageSheet({ page, products, handlers, eager }: Pr
   const chrome = resolvePageChrome(page);
   const header = chrome.header;
   const pagePriceStyle = resolvePagePriceStyle(chrome);
+  const pageTextStyle = resolvePageTextStyle(chrome);
   const showHeader = !!(header?.enabled && header.text.trim());
 
   return (
     <div className={'mag-catalog' + (showHeader ? ' has-page-header' : '')}>
       {showHeader && header ? (
         <header
-          className={`mag-page-header ${pageHeaderClass(header.style)}`}
+          className="mag-page-header"
+          style={pageHeaderCssVars(header)}
           aria-label={header.text.trim()}
         >
           <div className="mag-page-header__badge" aria-hidden="true">
@@ -111,6 +114,7 @@ export default function CatalogPageSheet({ page, products, handlers, eager }: Pr
                   pricePos={pricePos}
                   heartPos={heartPos}
                   priceStyle={resolveItemPriceStyle(pagePriceStyle, item.display)}
+                  textStyle={resolveItemTextStyle(pageTextStyle, item.display)}
                   onProduct={handlers?.onProduct}
                   highlight={
                     handlers?.highlightId === item.id

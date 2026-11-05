@@ -16,6 +16,11 @@ import {
   priceStyleCssVars,
   type ResolvedPriceStyle,
 } from '@/lib/priceStyle';
+import {
+  DEFAULT_PAGE_TEXT_STYLE,
+  textStyleCssVars,
+  type ResolvedTextStyle,
+} from '@/lib/textStyle';
 import * as DF from '@/lib/store';
 import type { Product } from '@/lib/types';
 import HeartStepper from '@/components/list/HeartStepper';
@@ -81,6 +86,7 @@ export default function ProductCell({
   images, priceLeft = false, imageLayouts, overflow = false,
   textPos, pricePos, heartPos,
   priceStyle,
+  textStyle,
   showUnitPrice = false,
   gestureEdit = false, onImageLayout, onBoxPos,
   showHeart = false, heartEdit = false, slotId, magazineType,
@@ -101,6 +107,8 @@ export default function ProductCell({
   heartPos?: BoxPos;
   /** Stil preț rezolvat (pagină ± override casuță) */
   priceStyle?: ResolvedPriceStyle;
+  /** Stil text pe foaie (umbră brand/nume) */
+  textStyle?: ResolvedTextStyle;
   /** Linia „1 kg = … lei” — doar dacă e bifat pe casuță */
   showUnitPrice?: boolean;
   gestureEdit?: boolean;
@@ -433,6 +441,10 @@ export default function ProductCell({
     if (!gestureEdit || e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    /* Evită ca 2 click-uri pe poză (select + drag) să urce ca dblclick → ieșire din edit. */
+    const el = e.currentTarget as HTMLElement;
+    const blockDbl = (ev: Event) => { ev.preventDefault(); ev.stopPropagation(); };
+    el.addEventListener('dblclick', blockDbl, { once: true, capture: true });
     const alreadyActive = sameTarget(activeRef.current, target);
     const heartReady = target.kind === 'heart' && heartDragReadyRef.current;
     if (heartReady) heartDragReadyRef.current = false;
@@ -485,12 +497,14 @@ export default function ProductCell({
   const isPriceActive = active?.kind === 'price';
   const isHeartActive = active?.kind === 'heart';
   const textSized = tPos.w != null;
+  const resolvedText = textStyle || DEFAULT_PAGE_TEXT_STYLE;
 
   const textBlock = (
     <div
       ref={textRef}
       className={
         'mag-cell__text'
+        + (resolvedText.color === 'white' ? ' is-ink-white' : '')
         + (gestureEdit ? ' is-gesture-target' : '')
         + (isTextActive ? ' is-active' : '')
         + (gestureEdit && active && !isTextActive ? ' is-idle' : '')
@@ -500,6 +514,7 @@ export default function ProductCell({
         left: `${tPos.x}%`,
         top: `${tPos.y}%`,
         ['--box-zoom' as string]: String(tPos.scale ?? 1),
+        ...textStyleCssVars(resolvedText),
         ...(tPos.w != null ? { width: `${tPos.w}%`, maxWidth: 'none', height: 'auto' } : {}),
       }}
       onPointerDown={gestureEdit ? (e) => beginPending({ kind: 'text' }, 'box', e) : undefined}

@@ -133,6 +133,11 @@ export interface PageItemDisplay {
    * Lipsă = moștenește stilul paginii (`chrome.price`).
    */
   priceStyle?: Partial<PagePriceStyle>;
+  /**
+   * Override stil text pe această casuță.
+   * Lipsă = moștenește stilul paginii (`chrome.text`).
+   */
+  textStyle?: Partial<PageTextStyle>;
 }
 
 export interface PageItem {
@@ -196,7 +201,10 @@ export interface PageHeader {
   text: string;
   /** Subtitlu opțional (ex. valabilitate) */
   subtitle?: string;
+  /** Preset vechi (red/blue/…) — fallback dacă lipsește `color`. */
   style: PageHeaderStyleId;
+  /** Culoare bandă (hex), același picker ca la prețuri / forme. */
+  color?: string;
 }
 
 /** Stil prețuri pe foaie (default pentru toate casuțele). */
@@ -208,12 +216,20 @@ export interface PagePriceStyle {
   look?: 'clasic' | 'plat' | 'contour' | 'stampila' | 'relief' | 'negativ';
 }
 
+/** Stil text pe foaie (brand / nume pe casuțe). */
+export interface PageTextStyle {
+  /** Culoare text — alb (fundal închis) / negru (fundal deschis) */
+  color?: 'white' | 'black';
+}
+
 /** Aspect pagină (fundal + header + prețuri) — per foaie */
 export interface PageChrome {
   bg: PageBgPresetId;
   header?: PageHeader;
   /** Stil prețuri default pe foaie */
   price?: PagePriceStyle;
+  /** Stil text default pe foaie */
+  text?: PageTextStyle;
 }
 
 /** Forme pe foaie (plan din spate, sub produse). */

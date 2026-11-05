@@ -79,33 +79,25 @@ export default function SwipeHint({
       {!reducedMotion ? (
         <div className="swipe-hint__hand" aria-hidden="true">
           <span className="swipe-hint__ripple" />
+          {/* Lucide `pointer` — mână cu arătătorul ridicat (ISC) */}
           <svg
             className="swipe-hint__icon"
-            viewBox="0 0 88 120"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
             width="64"
-            height="88"
+            height="64"
+            fill="none"
+            stroke="#fff"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
           >
-            <g
-              fill="#fff"
-              stroke="rgba(0,0,0,.45)"
-              strokeWidth="2.4"
-              strokeLinejoin="round"
-            >
-              {/* palmă */}
-              <path d="M24 58c0-4 3.2-7.2 7.2-7.2h30.6c4 0 7.2 3.2 7.2 7.2v28c0 10.5-8.5 19-19 19h-7c-10.5 0-19-8.5-19-19V58z" />
-              {/* arătător — lung, degetul care glisează */}
-              <rect x="26" y="4" width="15" height="56" rx="7.5" />
-              {/* mijlociu */}
-              <rect x="41" y="28" width="14" height="36" rx="7" />
-              {/* inelar */}
-              <rect x="54" y="34" width="13" height="30" rx="6.5" />
-              {/* mic */}
-              <rect x="66" y="40" width="12" height="24" rx="6" />
-              {/* degetul mare */}
-              <path d="M24.5 61C14 54 4.5 58 2.2 66.5c-2.2 8 3.2 15.5 11.2 16.8l11.1 1.8V68c0-2.5 1-4.8 2.6-6.5l-2.6-.5z" />
-            </g>
-            {/* unghie pe arătător */}
-            <ellipse cx="33.5" cy="12" rx="4" ry="5" fill="rgba(0,0,0,.15)" />
+            <path d="M22 14a8 8 0 0 1-8 8" />
+            <path d="M18 11v-1a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
+            <path d="M14 10V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1" />
+            <path d="M10 9.5V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v10" />
+            <path d="M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
           </svg>
         </div>
       ) : null}

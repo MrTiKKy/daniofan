@@ -18,7 +18,7 @@ import {
 } from '@/lib/magazineBuilderStore';
 import {
   getPageBgCss,
-  pageHeaderClass,
+  pageHeaderCssVars,
   resolvePageChrome,
 } from '@/lib/pageChrome';
 import { createPageShape, createPageText } from '@/lib/pageDecor';
@@ -32,6 +32,7 @@ import {
   snapshotDisplay,
 } from '@/lib/pageItemDisplay';
 import { resolveItemPriceStyle, resolvePagePriceStyle } from '@/lib/priceStyle';
+import { resolveItemTextStyle, resolvePageTextStyle } from '@/lib/textStyle';
 import * as DF from '@/lib/store';
 import type { Product, ResolvedOffer } from '@/lib/types';
 import ProductCell from '@/components/magazine/ProductCell';
@@ -573,12 +574,16 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource, 
       const nextPrice = patch.price
         ? { ...(cur.price || {}), ...patch.price }
         : cur.price;
+      const nextText = patch.text
+        ? { ...(cur.text || {}), ...patch.text }
+        : cur.text;
       return {
         ...pg,
         chrome: {
           bg: patch.bg ?? cur.bg,
           header: nextHeader,
           price: nextPrice,
+          text: nextText,
         },
       };
     }));
@@ -996,6 +1001,7 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource, 
   const grid = activePage?.grid;
   const pageChrome = resolvePageChrome(activePage);
   const pagePriceStyle = resolvePagePriceStyle(pageChrome);
+  const pageTextStyle = resolvePageTextStyle(pageChrome);
   const pageHeader = pageChrome.header!;
   const showPageHeader = pageHeader.enabled && !!pageHeader.text.trim();
 
@@ -1051,24 +1057,25 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource, 
 
   const onWorkspacePointerDown = (e: React.PointerEvent) => {
     const t = e.target as Element | null;
+    if (t?.closest('.mag-builder__gesture-exit')) return;
     const onPage = !!(t && t.closest('.mag-builder__page-preview'));
     /* mod forme: click în afara foii = ieși */
     if (shapesEditMode && e.button === 0 && !onPage) {
       exitShapesEdit();
       return;
     }
-    /* click mijloc = pan mereu; click stânga pe fundal/gol = pan */
+    /* Pan: mijloc mereu; stânga pe fundal / gol — și în gesturi (fără a ieși din edit). */
     const mid = e.button === 1;
     const onBlock = !!(t && t.closest('.mag-builder__block, .mag-builder__resize'));
-    const empty = e.button === 0 && !onBlock && !inGesture && !shapesEditMode;
-    if (mid || empty) {
-      if (e.target === e.currentTarget && !mid) setSelectedId(null);
+    const onFocusBlock = !!(t && t.closest('.mag-builder__block.is-gesture-focus'));
+    const canPanLeft = e.button === 0 && !shapesEditMode && (
+      !onPage
+      || (!inGesture && !onBlock)
+      || (inGesture && !onFocusBlock)
+    );
+    if (mid || canPanLeft) {
+      if (e.target === e.currentTarget && !mid && !inGesture) setSelectedId(null);
       beginPagePan(e);
-      return;
-    }
-    if (e.target === e.currentTarget) {
-      if (gestureId) exitGesture();
-      else setSelectedId(null);
     }
   };
 
@@ -1136,8 +1143,20 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource, 
               ) : null}
               {inGesture ? (
                 <div className="mag-builder__gesture-hint" aria-live="polite">
-                  Click = activează (poză / text / preț) · pe text: cercuri galbene = lățime (înălțimea urmează textul) · Esc = ieși
+                  Click = activează (poză / text / preț) · pe text: cercuri galbene = lățime · Esc sau ✕ = ieși
                 </div>
+              ) : null}
+              {inGesture ? (
+                <button
+                  type="button"
+                  className="mag-builder__gesture-exit"
+                  aria-label="Ieși din editarea produsului"
+                  title="Ieși din edit (Esc)"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => exitGesture()}
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
               ) : null}
               {shapesEditMode ? (
                 <div className="mag-builder__gesture-hint" aria-live="polite">
@@ -1174,7 +1193,8 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource, 
                 >
                   {showPageHeader ? (
                     <header
-                      className={`mag-page-header ${pageHeaderClass(pageHeader.style)}`}
+                      className="mag-page-header"
+                      style={pageHeaderCssVars(pageHeader)}
                       aria-label={pageHeader.text.trim()}
                     >
                       <div className="mag-page-header__badge" aria-hidden="true">
@@ -1194,18 +1214,11 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource, 
                     </header>
                   ) : null}
                   {grid ? (
-                    <div
-                      className="mag-builder__grid-wrap"
-                      onPointerDown={(e) => {
-                        if (!inGesture) return;
-                        const t = e.target as HTMLElement;
-                        if (t.closest('.mag-builder__block.is-gesture-focus')) return;
-                        exitGesture();
-                      }}
-                    >
+                    <div className="mag-builder__grid-wrap">
                       <PageDecorLayer
                         items={activePage.decor || []}
                         editable={shapesEditMode}
+                        soft={!previewMode && !shapesEditMode}
                         selectedId={selectedDecorId}
                         onSelect={selectDecor}
                         onChange={patchDecor}
@@ -1286,10 +1299,9 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource, 
                                 e.preventDefault();
                                 e.stopPropagation();
                                 pendingSelectRef.current = null;
-                                if (isGesture) {
-                                  exitGesture();
-                                  return;
-                                }
+                                /* Ieșirea din gesturi: doar Esc / buton ✕ —
+                                   dublu-click pe poză (select + drag) nu trebuie să închidă editul. */
+                                if (isGesture || inGesture) return;
                                 enterGesture(item.id);
                               }}
                             >
@@ -1306,6 +1318,7 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource, 
                                 textPos={textPos}
                                 pricePos={pricePos}
                                 priceStyle={resolveItemPriceStyle(pagePriceStyle, item.display)}
+                                textStyle={resolveItemTextStyle(pageTextStyle, item.display)}
                                 gestureEdit={isGesture}
                                 onImageLayout={isGesture
                                   ? ({ index, layout }) => patchImageLayout(item.id, index, layout)
@@ -1430,6 +1443,7 @@ export default function MagazineBuilder({ products, offer, onBindPublishSource, 
                 onDecorChange={patchDecor}
                 onRemoveDecor={removeDecor}
                 onClose={() => { setSelectedId(null); setSelectedDecorId(null); }}
+                productOnly={inGesture}
               />
             </div>
           </div>

@@ -280,6 +280,14 @@ export default function ProductShelfModal({
               >
                 {draft.image ? 'Schimbă poza' : 'Adaugă poză'}
               </button>
+              <a
+                className="shelf-modal__img-alt"
+                href="https://huggingface.co/spaces/briaai/BRIA-RMBG-1.4"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Alternativă eliminare fundal
+              </a>
               <input
                 ref={fileRef}
                 type="file"

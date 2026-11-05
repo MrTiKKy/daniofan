@@ -7,14 +7,14 @@ import type {
   PageBgPresetId,
   PageChrome,
   PageDecorItem,
-  PageHeaderStyleId,
   PageItem,
   PageItemDisplay,
   PageShapeKind,
 } from '@/lib/catalogTypes';
 import {
   getPageBgPreset,
-  PAGE_HEADER_STYLES,
+  nearestHeaderStyle,
+  resolveHeaderBarColor,
   resolvePageChrome,
 } from '@/lib/pageChrome';
 import {
@@ -29,6 +29,10 @@ import {
   resolveItemPriceStyle,
   resolvePagePriceStyle,
 } from '@/lib/priceStyle';
+import {
+  resolveItemTextStyle,
+  resolvePageTextStyle,
+} from '@/lib/textStyle';
 import type { Product } from '@/lib/types';
 import ColorSwatchRow from './ColorSwatchRow';
 import PageBgPickerModal from './PageBgPickerModal';
@@ -36,6 +40,7 @@ import PageShapePickerModal from './PageShapePickerModal';
 import PageShapeSvg from './PageShapeSvg';
 import PriceStyleControls from './PriceStyleControls';
 import ProductShelfModal, { type ShelfDraft } from './ProductShelfModal';
+import TextStyleControls from './TextStyleControls';
 
 type InspectorTab = 'product' | 'design';
 
@@ -59,6 +64,8 @@ interface Props {
   onDecorChange?: (id: string, patch: Partial<PageDecorItem>) => void;
   onRemoveDecor?: (id: string) => void;
   onClose: () => void;
+  /** Mod gesturi produs: doar tab Detalii, Design blocat. */
+  productOnly?: boolean;
 }
 
 function Field({
@@ -76,7 +83,7 @@ export default function BuilderInspectorPanel({
   item, baseProduct, display, page, canPreview, previewOn, onPreview, onChange,
   onProductUpdate, categories = [], onChromeChange,
   selectedDecorId = null, onSelectDecor, onAddShape, onAddText, onDecorChange, onRemoveDecor,
-  onClose,
+  onClose, productOnly = false,
 }: Props) {
   const [tab, setTab] = useState<InspectorTab>('product');
   const [bgPickerOpen, setBgPickerOpen] = useState(false);
@@ -91,8 +98,11 @@ export default function BuilderInspectorPanel({
   const header = chrome.header!;
   const bgPreset = getPageBgPreset(chrome.bg);
   const pagePrice = resolvePagePriceStyle(chrome);
+  const pageText = resolvePageTextStyle(chrome);
   const hasPriceOverride = !!(display?.priceStyle && Object.keys(display.priceStyle).length);
+  const hasTextOverride = !!(display?.textStyle && Object.keys(display.textStyle).length);
   const itemPrice = resolveItemPriceStyle(pagePrice, display);
+  const itemText = resolveItemTextStyle(pageText, display);
   const decorItems = page?.decor || [];
   const selectedDecor = decorItems.find((d) => d.id === selectedDecorId) || null;
   const selectedShape = selectedDecor && isDecorShape(selectedDecor) ? selectedDecor : null;
@@ -102,12 +112,16 @@ export default function BuilderInspectorPanel({
   const shapeLabel = (shape: PageShapeKind) =>
     PAGE_SHAPE_KINDS.find((k) => k.id === shape)?.label || shape;
 
-  /* click pe produs → tab Detalii */
+  /* click pe produs / gesturi → tab Detalii */
   useEffect(() => {
-    if (!item?.id) return;
+    if (!item?.id && !productOnly) return;
     setTab('product');
     setShelfOpen(false);
-  }, [item?.id]);
+    if (productOnly) {
+      setBgPickerOpen(false);
+      setShapePickerOpen(false);
+    }
+  }, [item?.id, productOnly]);
 
   const setBg = (bg: PageBgPresetId) => onChromeChange({ bg });
   const setHeader = (patch: Partial<typeof header>) => {
@@ -139,9 +153,11 @@ export default function BuilderInspectorPanel({
     <aside className="bi-panel" aria-label="Instrumente pagină">
       <div className="bi-panel__head">
         <h2>Instrumente</h2>
-        {hasProductSelection && tab === 'product' ? (
-          <button type="button" className="bi-panel__x" aria-label="Deselectează" onClick={onClose}>×</button>
-        ) : null}
+        <div className="bi-panel__x-slot">
+          {hasProductSelection && (productOnly || tab === 'product') ? (
+            <button type="button" className="bi-panel__x" aria-label="Deselectează" onClick={onClose}>×</button>
+          ) : null}
+        </div>
       </div>
 
       <div className="bi-panel__tools">
@@ -161,8 +177,8 @@ export default function BuilderInspectorPanel({
           type="button"
           role="tab"
           id="bi-tab-product"
-          className={'bi-tabs__btn' + (tab === 'product' ? ' is-on' : '')}
-          aria-selected={tab === 'product'}
+          className={'bi-tabs__btn' + ((productOnly || tab === 'product') ? ' is-on' : '')}
+          aria-selected={productOnly || tab === 'product'}
           aria-controls="bi-panel-product"
           onClick={() => setTab('product')}
         >
@@ -172,17 +188,19 @@ export default function BuilderInspectorPanel({
           type="button"
           role="tab"
           id="bi-tab-design"
-          className={'bi-tabs__btn' + (tab === 'design' ? ' is-on' : '')}
-          aria-selected={tab === 'design'}
+          className={'bi-tabs__btn' + (!productOnly && tab === 'design' ? ' is-on' : '')}
+          aria-selected={!productOnly && tab === 'design'}
           aria-controls="bi-panel-design"
-          onClick={() => setTab('design')}
+          disabled={productOnly}
+          title={productOnly ? 'Disponibil după ce ieși din editarea produsului' : undefined}
+          onClick={() => { if (!productOnly) setTab('design'); }}
         >
           Design pagină
         </button>
       </div>
 
       <div className="bi-panel__body">
-        {tab === 'product' ? (
+        {productOnly || tab === 'product' ? (
           <div
             id="bi-panel-product"
             role="tabpanel"
@@ -194,33 +212,66 @@ export default function BuilderInspectorPanel({
               </p>
             ) : (
               <>
-                <p className="bi-panel__note">
-                  {display.brand ? `${display.brand} · ` : ''}{display.name || 'Produs'}
-                </p>
-                <button
-                  type="button"
-                  className="bi-add-block"
-                  onClick={() => setShelfOpen(true)}
-                >
-                  Editează eticheta
-                </button>
-
-                <div className="bi-section" style={{ marginTop: 14, paddingBottom: 0, borderBottom: 0 }}>
+                <section className="bi-card">
+                  <h3 className="bi-card__title">Etichetă</h3>
+                  <p className="bi-panel__note" style={{ margin: 0 }}>
+                    {display.brand ? `${display.brand} · ` : ''}{display.name || 'Produs'}
+                  </p>
+                  <button
+                    type="button"
+                    className="bi-add-block"
+                    onClick={() => setShelfOpen(true)}
+                  >
+                    Editează eticheta
+                  </button>
                   <label className="bi-chk">
                     <input
                       type="checkbox"
                       checked={!!display.showUnitPrice}
                       onChange={(e) => onChange({ showUnitPrice: e.target.checked })}
                     />
-                    Afișează informații suplimentare (preț/kg sau /l)
+                    Afișează info suplimentare (preț/kg sau /l)
                   </label>
-                  <p className="bi-panel__sub" style={{ marginTop: 6 }}>
+                  <p className="bi-panel__sub" style={{ margin: 0 }}>
                     Doar pe această casuță.
                   </p>
-                </div>
+                </section>
 
-                <div className="bi-section" style={{ marginTop: 14 }}>
-                  <h3>Stil preț</h3>
+                <section className="bi-card">
+                  <h3 className="bi-card__title">Stil text</h3>
+                  <label className="bi-chk">
+                    <input
+                      type="checkbox"
+                      checked={hasTextOverride}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          onChange({
+                            textStyle: {
+                              color: pageText.color,
+                            },
+                          });
+                        } else {
+                          onChange({ textStyle: undefined });
+                        }
+                      }}
+                    />
+                    produs modificat individual
+                  </label>
+                  {hasTextOverride ? (
+                    <TextStyleControls
+                      value={itemText}
+                      onChange={(patch) => onChange({
+                        textStyle: {
+                          color: itemText.color,
+                          ...patch,
+                        },
+                      })}
+                    />
+                  ) : null}
+                </section>
+
+                <section className="bi-card">
+                  <h3 className="bi-card__title">Stil preț</h3>
                   <label className="bi-chk">
                     <input
                       type="checkbox"
@@ -254,7 +305,7 @@ export default function BuilderInspectorPanel({
                       })}
                     />
                   ) : null}
-                </div>
+                </section>
 
                 <ProductShelfModal
                   open={shelfOpen}
@@ -350,25 +401,15 @@ export default function BuilderInspectorPanel({
                       placeholder="ex. Valabilitate ofertă"
                     />
                   </Field>
-                  <p className="bi-label">Culoare</p>
-                  <div className="bi-header-styles" role="listbox" aria-label="Stil header">
-                    {PAGE_HEADER_STYLES.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        role="option"
-                        aria-selected={header.style === s.id}
-                        className={'bi-header-style' + (header.style === s.id ? ' is-on' : '')}
-                        disabled={!header.enabled}
-                        onClick={() => setHeader({ style: s.id as PageHeaderStyleId })}
-                        title={s.label}
-                        style={{ ['--hs' as string]: s.swatch }}
-                      >
-                        <span className="bi-header-style__bar" aria-hidden="true" />
-                        <span>{s.label}</span>
-                      </button>
-                    ))}
-                  </div>
+                  <ColorSwatchRow
+                    label="Culoare"
+                    value={resolveHeaderBarColor(header)}
+                    disabled={!header.enabled}
+                    onChange={(c) => setHeader({
+                      color: c,
+                      style: nearestHeaderStyle(c),
+                    })}
+                  />
                 </section>
 
                 <section className="bi-card">
@@ -641,6 +682,16 @@ export default function BuilderInspectorPanel({
                       </div>
                     ) : null}
                   </div>
+                </section>
+
+                <section className="bi-card">
+                  <h3 className="bi-card__title">Stil text</h3>
+                  <TextStyleControls
+                    value={pageText}
+                    onChange={(patch) => onChromeChange({
+                      text: { ...(chrome.text || {}), ...patch },
+                    })}
+                  />
                 </section>
 
                 <section className="bi-card">
